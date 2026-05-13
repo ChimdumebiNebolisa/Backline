@@ -1,0 +1,17 @@
+pluginManagement {
+    repositories {
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+rootProject.name = 'backline'
+
+include 'apps:cli'
+include 'apps:api'
+include 'apps:worker'
+include 'apps:sample-api'
+include 'libs:core'
+include 'libs:config'
+include 'libs:executor'
+include 'libs:reporting'

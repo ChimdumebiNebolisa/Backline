@@ -1,0 +1,30 @@
+# Gradle
+build/
+.gradle/
+
+# Java
+*.class
+*.jar
+*.war
+*.log
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDEs
+.idea/
+.vscode/
+*.iml
+out/
+
+# Maven (if used alongside)
+target/
+
+# OS
+.DS_Store
+
+# Local env (keep example tracked)
+.env
+!.env.example
+
+# Local data volumes
+/data/
+/pgdata/

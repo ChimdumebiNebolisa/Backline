@@ -1,0 +1,11 @@
+plugins {
+    id 'java'
+}
+
+dependencies {
+    implementation project(':libs:core')
+    implementation "com.fasterxml.jackson.core:jackson-annotations:${jacksonVersion}"
+
+    testImplementation "org.junit.jupiter:junit-jupiter:${junitJupiterVersion}"
+    testImplementation "org.assertj:assertj-core:${assertjVersion}"
+}

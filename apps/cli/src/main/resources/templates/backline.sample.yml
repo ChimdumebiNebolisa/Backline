@@ -1,0 +1,29 @@
+project: sample-api
+environment: local
+
+checks:
+  - key: health
+    name: Health check
+    method: GET
+    url: http://localhost:8081/health
+    expected_status: 200
+    max_latency_ms: 300
+
+  - key: get-user
+    name: Fetch user
+    method: GET
+    url: http://localhost:8081/users/1
+    expected_status: 200
+    max_latency_ms: 500
+    assertions:
+      - path: $.id
+        equals: 1
+      - path: $.email
+        exists: true
+
+  - key: broken-endpoint
+    name: Broken endpoint
+    method: GET
+    url: http://localhost:8081/broken
+    expected_status: 200
+    max_latency_ms: 500

@@ -1,0 +1,38 @@
+plugins {
+    id 'org.springframework.boot' version '3.3.5' apply false
+    id 'io.spring.dependency-management' version '1.1.6' apply false
+}
+
+allprojects {
+    group = 'dev.backline'
+    version = '0.1.0-SNAPSHOT'
+
+    ext {
+        picocliVersion = '4.7.6'
+        jsonPathVersion = '2.9.0'
+        okhttpVersion = '4.12.0'
+        testcontainersVersion = '1.20.4'
+        springdocOpenapiVersion = '2.6.0'
+        junitJupiterVersion = '5.10.2'
+        assertjVersion = '3.26.3'
+        jacksonVersion = '2.17.2'
+    }
+
+    repositories {
+        mavenCentral()
+    }
+}
+
+subprojects {
+    plugins.withId('java') {
+        java {
+            toolchain {
+                languageVersion = JavaLanguageVersion.of(21)
+            }
+        }
+
+        tasks.withType(Test).configureEach {
+            useJUnitPlatform()
+        }
+    }
+}

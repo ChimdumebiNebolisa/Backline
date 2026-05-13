@@ -1,0 +1,10 @@
+plugins {
+    id 'java'
+}
+
+dependencies {
+    compileOnly "com.fasterxml.jackson.core:jackson-annotations:${jacksonVersion}"
+
+    testImplementation "org.junit.jupiter:junit-jupiter:${junitJupiterVersion}"
+    testImplementation "org.assertj:assertj-core:${assertjVersion}"
+}

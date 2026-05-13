@@ -1,0 +1,11 @@
+spring:
+  application:
+    name: backline-sample-api
+
+server:
+  port: ${BACKLINE_SAMPLE_PORT:8081}
+
+logging:
+  level:
+    root: INFO
+    dev.backline.sample.controller.SampleController: INFO

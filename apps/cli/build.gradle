@@ -1,0 +1,38 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+application {
+    mainClass = 'dev.backline.cli.Backline'
+    applicationName = 'backline'
+}
+
+dependencies {
+    implementation "info.picocli:picocli:${picocliVersion}"
+    annotationProcessor "info.picocli:picocli-codegen:${picocliVersion}"
+    implementation "com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}"
+    implementation "com.fasterxml.jackson.datatype:jackson-datatype-jsr310:${jacksonVersion}"
+    implementation "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:${jacksonVersion}"
+    implementation project(':libs:core')
+    implementation project(':libs:config')
+    implementation project(':libs:reporting')
+
+    testImplementation "org.junit.jupiter:junit-jupiter:${junitJupiterVersion}"
+    testImplementation "org.assertj:assertj-core:${assertjVersion}"
+}
+
+jar {
+    manifest {
+        attributes 'Main-Class': 'dev.backline.cli.Backline'
+    }
+}
+
+tasks.named('test', Test).configure {
+    def workDir = layout.buildDirectory.dir("cli-test-work").get().asFile
+    doFirst {
+        workDir.mkdirs()
+    }
+    workingDir = workDir
+    maxParallelForks = 1
+}

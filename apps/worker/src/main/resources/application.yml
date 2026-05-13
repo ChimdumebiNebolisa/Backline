@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: backline-worker
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/backline}
+    username: ${SPRING_DATASOURCE_USERNAME:backline}
+    password: ${SPRING_DATASOURCE_PASSWORD:backline}
+  flyway:
+    enabled: false
+
+backline:
+  worker:
+    id: ${BACKLINE_WORKER_ID:${HOSTNAME:worker-local}}
+    poll-interval-ms: ${BACKLINE_WORKER_POLL_INTERVAL_MS:1000}
+    max-attempts: ${BACKLINE_WORKER_MAX_ATTEMPTS:3}
+    retry-backoff-ms: ${BACKLINE_WORKER_RETRY_BACKOFF_MS:5000}
+    http-connect-timeout-ms: ${BACKLINE_WORKER_HTTP_CONNECT_TIMEOUT_MS:5000}
+    http-request-timeout-ms: ${BACKLINE_WORKER_HTTP_REQUEST_TIMEOUT_MS:30000}
