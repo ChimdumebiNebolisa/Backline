@@ -97,6 +97,10 @@ public class RunCommand implements Callable<Integer> {
             Thread.currentThread().interrupt();
             System.err.println("Interrupted");
             return 1;
+        } catch (java.io.IOException e) {
+            String detail = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            System.err.println("Cannot reach API at " + parent.apiUrl() + ": " + detail);
+            return 1;
         }
     }
 
