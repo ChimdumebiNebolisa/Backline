@@ -6,7 +6,10 @@ import dev.backline.api.support.PostgresTestBase;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -21,8 +24,11 @@ class ErrorContractTest extends PostgresTestBase {
 
     @Test
     void postProjectBlankSlugReturnsValidationError() throws Exception {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<String> request = new HttpEntity<>("{\"slug\":\"\",\"name\":\"n\"}", headers);
         ResponseEntity<String> res =
-                restTemplate.postForEntity("/api/projects", "{\"slug\":\"\",\"name\":\"n\"}", String.class);
+                restTemplate.postForEntity("/api/projects", request, String.class);
         assertThat(res.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         JsonNode root = objectMapper.readTree(res.getBody());
         assertThat(root.path("error").path("code").asText()).isEqualTo("VALIDATION_ERROR");
