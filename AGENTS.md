@@ -234,8 +234,7 @@ If any answer is no, stop and update the relevant document before coding.
 
 - **Worker requires `--spring.main.keep-alive=true`**: The worker poll thread is set as a daemon thread. Without this flag the JVM exits immediately after Spring context initialization. Always pass `--args="--spring.main.keep-alive=true"` when running via `bootRun`.
 - **PostgreSQL must be running before API or Worker**: The API server runs Flyway migrations on startup and will fail if PostgreSQL is not available. The Worker also requires the database.
-- **API Testcontainers tests have context-caching conflicts**: When the full `apps/api` test suite runs, tests extending `persistence.PostgresTestBase` (e.g. `MigrationSmokeTest`, `RunRepositoryTest`) may fail with `ConnectException` due to Spring context caching across Testcontainers-managed containers. Each test class passes when run individually (`--tests "dev.backline.api.migration.MigrationSmokeTest"`). This is a pre-existing issue.
-- **Worker test compilation error**: `WorkerExecutionTest` has a pre-existing compilation error (`cannot find symbol: variable assertCheck`). Worker tests do not compile until this is fixed.
+- **Testcontainers base classes use static initializer pattern**: Both `persistence.PostgresTestBase` and `PostgresWorkerTestBase` start the Testcontainers container via `static {}` (not `@Container`/`@Testcontainers`) to avoid Spring context caching conflicts. Do not switch to `@Container`.
 - **CLI install directory**: The `installDist` task puts the distribution under `apps/cli/build/install/backline/bin` (not `cli/bin`).
 - **Health checks**: API health at `http://localhost:8080/actuator/health`, Sample API health at `http://localhost:8081/health`.
 - **Swagger UI**: Available at `http://localhost:8080/swagger-ui/index.html` when the API is running.
