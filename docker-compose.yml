@@ -46,7 +46,7 @@ services:
       postgres:
         condition: service_healthy
       api:
-        condition: service_started
+        condition: service_healthy
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-backline}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-backline}
