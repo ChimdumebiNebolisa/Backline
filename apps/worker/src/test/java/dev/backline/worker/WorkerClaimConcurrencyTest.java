@@ -49,7 +49,12 @@ class WorkerClaimConcurrencyTest extends PostgresWorkerTestBase {
                                         dao.finalizeRun(claimed.orElseThrow().runId(), RunStatus.ERROR, "concurrency test");
                                         processed.incrementAndGet();
                                     } else {
-                                        Thread.sleep(2);
+                                        try {
+                                            Thread.sleep(2);
+                                        } catch (InterruptedException ie) {
+                                            Thread.currentThread().interrupt();
+                                            return;
+                                        }
                                     }
                                 }
                             }));
