@@ -44,7 +44,7 @@ From the repository root:
 cp .env.example .env
 docker compose up --build -d
 ./gradlew :apps:cli:installDist
-export PATH="$PWD/apps/cli/build/install/cli/bin:$PATH"
+export PATH="$PWD/apps/cli/build/install/backline/bin:$PATH"
 backline doctor
 backline sample init
 backline sample serve
@@ -66,7 +66,7 @@ backline report <runId>
 Copy-Item .env.example .env
 docker compose up --build -d
 .\gradlew.bat :apps:cli:installDist
-$env:Path = "$PWD\apps\cli\build\install\cli\bin;$env:Path"
+$env:Path = "$PWD\apps\cli\build\install\backline\bin;$env:Path"
 backline doctor
 backline sample init
 backline sample serve

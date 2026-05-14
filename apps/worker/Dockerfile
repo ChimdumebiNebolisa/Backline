@@ -13,4 +13,4 @@ RUN groupadd --system spring \
 USER spring:spring
 WORKDIR /app
 COPY --from=builder /workspace/app.jar /app/app.jar
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+ENTRYPOINT ["java", "-jar", "/app/app.jar", "--spring.main.keep-alive=true"]

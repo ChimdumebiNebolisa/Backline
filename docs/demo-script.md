@@ -8,9 +8,9 @@ Short path to prove the full stack end-to-end. Assumes **Docker Desktop** (or co
 
 3. **`docker compose up --build -d`** — Starts Postgres, API, and worker. **Outcome:** containers are healthy; API Flyway migrations apply on first start.
 
-4. **`./gradlew :apps:cli:installDist`** — Produces the `backline` launcher under `apps/cli/build/install/cli/bin/` once the CLI module registers Gradle’s **Application** plugin (Task 4). If this task is missing, run `./gradlew :apps:cli:build` and pick up the launcher from the integration pass. **Outcome:** CLI binary exists.
+4. **`./gradlew :apps:cli:installDist`** — Produces the `backline` launcher under `apps/cli/build/install/backline/bin/`. **Outcome:** CLI binary exists.
 
-5. **Add CLI to `PATH`** — Unix: `export PATH="$PWD/apps/cli/build/install/cli/bin:$PATH"`. PowerShell: `$env:Path = "$PWD\apps\cli\build\install\cli\bin;$env:Path"`. **Outcome:** `backline` resolves in the shell.
+5. **Add CLI to `PATH`** — Unix: `export PATH="$PWD/apps/cli/build/install/backline/bin:$PATH"`. PowerShell: `$env:Path = "$PWD\apps\cli\build\install\backline\bin;$env:Path"`. **Outcome:** `backline` resolves in the shell.
 
 6. **`backline doctor`** — Verifies config and API reachability (`BACKLINE_API_URL`). **Outcome:** doctor reports API OK when `http://localhost:8080` is reachable.
 
