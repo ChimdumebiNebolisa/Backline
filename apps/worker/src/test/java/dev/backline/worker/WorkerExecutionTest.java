@@ -77,7 +77,7 @@ class WorkerExecutionTest extends PostgresWorkerTestBase {
                 List.of(new AssertionDto("$.id", 1, null)));
         UUID failCheck =
                 insertCheck(projectId, "b-fail", "Failing status", "GET", server.url("/fail").toString(), 200, null);
-        insertCheck(
+        UUID assertCheck = insertCheck(
                 projectId,
                 "c-assert",
                 "Failing assertion",
