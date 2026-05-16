@@ -1,0 +1,106 @@
+{
+  "submission": {
+    "slug": "perf-submission",
+    "name": "Backline Perf Submission",
+    "environment": "local",
+    "configHash": "perf-submission-v1",
+    "checks": [
+      {
+        "key": "health",
+        "name": "Health check",
+        "method": "GET",
+        "url": "http://sample-api:8081/health",
+        "expectedStatus": 200,
+        "maxLatencyMs": 300
+      },
+      {
+        "key": "get-user",
+        "name": "Fetch user",
+        "method": "GET",
+        "url": "http://sample-api:8081/users/1",
+        "expectedStatus": 200,
+        "maxLatencyMs": 500,
+        "assertions": [
+          {
+            "path": "$.id",
+            "equals": 1
+          },
+          {
+            "path": "$.email",
+            "exists": true
+          }
+        ]
+      }
+    ]
+  },
+  "queue": {
+    "slug": "perf-queue",
+    "name": "Backline Perf Queue",
+    "environment": "local",
+    "configHash": "perf-queue-v1",
+    "checks": [
+      {
+        "key": "health",
+        "name": "Health check",
+        "method": "GET",
+        "url": "http://sample-api:8081/health",
+        "expectedStatus": 200,
+        "maxLatencyMs": 300
+      },
+      {
+        "key": "get-user",
+        "name": "Fetch user",
+        "method": "GET",
+        "url": "http://sample-api:8081/users/1",
+        "expectedStatus": 200,
+        "maxLatencyMs": 500,
+        "assertions": [
+          {
+            "path": "$.id",
+            "equals": 1
+          },
+          {
+            "path": "$.email",
+            "exists": true
+          }
+        ]
+      },
+      {
+        "key": "slow-endpoint",
+        "name": "Slow endpoint",
+        "method": "GET",
+        "url": "http://sample-api:8081/slow",
+        "expectedStatus": 200,
+        "maxLatencyMs": 1500,
+        "assertions": [
+          {
+            "path": "$.delayedMs",
+            "equals": 700
+          }
+        ]
+      },
+      {
+        "key": "broken-endpoint",
+        "name": "Broken endpoint should fail",
+        "method": "GET",
+        "url": "http://sample-api:8081/broken",
+        "expectedStatus": 200,
+        "maxLatencyMs": 500
+      },
+      {
+        "key": "schema-change",
+        "name": "Schema change shape",
+        "method": "GET",
+        "url": "http://sample-api:8081/schema-change",
+        "expectedStatus": 200,
+        "maxLatencyMs": 500,
+        "assertions": [
+          {
+            "path": "$.renamedField",
+            "exists": true
+          }
+        ]
+      }
+    ]
+  }
+}

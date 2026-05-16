@@ -1,0 +1,27 @@
+services:
+  worker:
+    entrypoint:
+      - /bin/sh
+      - -c
+      - exec java -jar /app/app.jar --spring.main.keep-alive=true --backline.worker.id=$$HOSTNAME
+
+  k6:
+    image: grafana/k6:0.49.0
+    profiles:
+      - perf
+    working_dir: /perf
+    entrypoint:
+      - k6
+    volumes:
+      - ./perf:/perf
+    environment:
+      BACKLINE_API_URL: http://api:8080
+      SAMPLE_API_URL: http://sample-api:8081
+      PERF_OUT_DIR: /perf/out
+    depends_on:
+      api:
+        condition: service_healthy
+      worker:
+        condition: service_started
+      sample-api:
+        condition: service_started
