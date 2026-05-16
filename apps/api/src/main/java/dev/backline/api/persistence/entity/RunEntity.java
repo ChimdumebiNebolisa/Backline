@@ -63,6 +63,12 @@ public class RunEntity {
     @Column(name = "next_attempt_at", nullable = false)
     private Instant nextAttemptAt;
 
+    @Column(name = "timeout_at")
+    private Instant timeoutAt;
+
+    @Column(name = "last_error", columnDefinition = "text")
+    private String lastError;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -199,6 +205,22 @@ public class RunEntity {
 
     public void setNextAttemptAt(Instant nextAttemptAt) {
         this.nextAttemptAt = nextAttemptAt;
+    }
+
+    public Instant getTimeoutAt() {
+        return timeoutAt;
+    }
+
+    public void setTimeoutAt(Instant timeoutAt) {
+        this.timeoutAt = timeoutAt;
+    }
+
+    public String getLastError() {
+        return lastError;
+    }
+
+    public void setLastError(String lastError) {
+        this.lastError = lastError;
     }
 
     public Instant getCreatedAt() {

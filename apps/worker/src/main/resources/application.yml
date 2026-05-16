@@ -16,3 +16,5 @@ backline:
     retry-backoff-ms: ${BACKLINE_WORKER_RETRY_BACKOFF_MS:5000}
     http-connect-timeout-ms: ${BACKLINE_WORKER_HTTP_CONNECT_TIMEOUT_MS:5000}
     http-request-timeout-ms: ${BACKLINE_WORKER_HTTP_REQUEST_TIMEOUT_MS:30000}
+    stale-threshold-ms: ${BACKLINE_WORKER_STALE_THRESHOLD_MS:300000}
+    job-timeout-ms: ${BACKLINE_WORKER_JOB_TIMEOUT_MS:600000}

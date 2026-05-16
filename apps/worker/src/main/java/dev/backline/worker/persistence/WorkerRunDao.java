@@ -43,6 +43,7 @@ public class WorkerRunDao {
                 locked_at = now(),
                 started_at = coalesce(started_at, now()),
                 attempt_count = attempt_count + 1,
+                timeout_at = ?,
                 updated_at = now()
             WHERE id = ?
             """;
@@ -58,6 +59,10 @@ public class WorkerRunDao {
     }
 
     public Optional<ClaimedRun> claimNextRun(String workerId) {
+        return claimNextRun(workerId, 0L);
+    }
+
+    public Optional<ClaimedRun> claimNextRun(String workerId, long jobTimeoutMs) {
         return transactionTemplate.execute(status -> {
             List<ClaimCandidate> candidates =
                     jdbcTemplate.query(CLAIM_SELECT, (rs, rowNum) -> new ClaimCandidate(
@@ -72,7 +77,10 @@ public class WorkerRunDao {
             }
 
             ClaimCandidate candidate = candidates.getFirst();
-            int updated = jdbcTemplate.update(CLAIM_UPDATE, workerId, candidate.runId());
+            Timestamp timeoutAt = jobTimeoutMs > 0
+                    ? Timestamp.from(Instant.now().plusMillis(jobTimeoutMs))
+                    : null;
+            int updated = jdbcTemplate.update(CLAIM_UPDATE, workerId, timeoutAt, candidate.runId());
             if (updated != 1) {
                 throw new IllegalStateException("Expected exactly one run row to be claimed");
             }
@@ -152,11 +160,15 @@ public class WorkerRunDao {
                             finished_at = now(),
                             updated_at = now(),
                             locked_by = NULL,
-                            locked_at = NULL
+                            locked_at = NULL,
+                            timeout_at = NULL,
+                            last_error = CASE WHEN ? IN ('ERROR') THEN ? ELSE last_error END
                         WHERE id = ?
                           AND status = 'RUNNING'
                         """,
                 terminalStatus.name(),
+                terminalStatus.name(),
+                message,
                 runId);
         if (rows != 1) {
             throw new IllegalStateException("Expected exactly one RUNNING run to finalize for id " + runId);
@@ -208,6 +220,83 @@ public class WorkerRunDao {
 
         insertRunEvent(runId, RETRY_SCHEDULED, "Scheduled retry after " + backoffMs + " ms backoff");
     }
+
+    /**
+     * Recovers RUNNING runs whose worker appears stale (locked_at older than threshold)
+     * or whose timeout_at has passed. Each recovered run is either requeued for retry
+     * (if attempts remain) or marked ERROR. Uses FOR UPDATE SKIP LOCKED for safety
+     * with multiple workers.
+     *
+     * @return number of runs recovered
+     */
+    public int recoverStaleRuns(long staleThresholdMs, int maxAttempts, long retryBackoffMs) {
+        return transactionTemplate.execute(status -> {
+            Timestamp staleDeadline = Timestamp.from(Instant.now().minusMillis(staleThresholdMs));
+            Timestamp now = Timestamp.from(Instant.now());
+            List<StaleCandidate> stale = jdbcTemplate.query(
+                    """
+                    SELECT id, attempt_count
+                    FROM runs
+                    WHERE status = 'RUNNING'
+                      AND (locked_at <= ? OR (timeout_at IS NOT NULL AND timeout_at <= ?))
+                    FOR UPDATE SKIP LOCKED
+                    """,
+                    (rs, rowNum) -> new StaleCandidate(
+                            rs.getObject("id", UUID.class),
+                            rs.getInt("attempt_count")),
+                    staleDeadline,
+                    now);
+
+            for (StaleCandidate candidate : stale) {
+                jdbcTemplate.update("DELETE FROM check_results WHERE run_id = ?", candidate.runId());
+                if (candidate.attemptCount() < maxAttempts) {
+                    jdbcTemplate.update(
+                            """
+                            UPDATE runs
+                            SET status = 'QUEUED',
+                                next_attempt_at = ?,
+                                locked_by = NULL,
+                                locked_at = NULL,
+                                timeout_at = NULL,
+                                last_error = 'Recovered from stale RUNNING state',
+                                updated_at = now()
+                            WHERE id = ?
+                            """,
+                            Timestamp.from(Instant.now().plusMillis(retryBackoffMs)),
+                            candidate.runId());
+                    insertRunEvent(candidate.runId(), RunEventType.STALE_RECOVERED.name(),
+                            "Stale RUNNING run requeued for retry (attempt " + candidate.attemptCount() + "/" + maxAttempts + ")");
+                } else {
+                    jdbcTemplate.update(
+                            """
+                            UPDATE runs
+                            SET status = 'ERROR',
+                                finished_at = now(),
+                                locked_by = NULL,
+                                locked_at = NULL,
+                                timeout_at = NULL,
+                                last_error = 'Stale RUNNING after max attempts exhausted',
+                                updated_at = now()
+                            WHERE id = ?
+                            """,
+                            candidate.runId());
+                    insertRunEvent(candidate.runId(), RunEventType.STALE_RECOVERED.name(),
+                            "Stale RUNNING run marked ERROR — max attempts exhausted (" + candidate.attemptCount() + "/" + maxAttempts + ")");
+                }
+            }
+            return stale.size();
+        });
+    }
+
+    /**
+     * Checks whether a run has been cancelled while the worker is executing it.
+     */
+    public boolean isRunCancelled(UUID runId) {
+        String st = jdbcTemplate.queryForObject("SELECT status FROM runs WHERE id = ?", String.class, runId);
+        return "CANCELLED".equals(st);
+    }
+
+    private record StaleCandidate(UUID runId, int attemptCount) {}
 
     public List<CheckRow> loadChecksForProject(UUID projectId) {
         return jdbcTemplate.query(

@@ -150,6 +150,7 @@ Product and scope limits: [docs/known-limitations.md](docs/known-limitations.md)
 | Port **8080** or **8081** in use | Change host mapping in `docker-compose.yml`, or stop the conflicting process. For the sample API locally, set `BACKLINE_SAMPLE_PORT` in `.env` and align `backline.yml` URLs. |
 | Database / Flyway errors on first start | If data is disposable: `docker compose down -v` to remove the `pgdata` volume, then `docker compose up --build` again. |
 | Worker not picking up runs | Confirm the **worker** container is running and logs show DB connectivity; ensure runs reach `QUEUED` via `POST /api/runs` / `backline run`. |
+| `./gradlew test` fails with `IllegalStateException: Could not find a valid Docker environment` | API and worker integration tests use **Testcontainers** and require a running Docker engine. Start **Docker Desktop** (Windows/macOS) or the Docker daemon (Linux). On Windows, ensure WSL 2 integration is enabled in Docker Desktop settings. If Docker is unavailable, Testcontainers tests are skipped automatically; non-Docker tests still run. |
 
 ## Docker images
 

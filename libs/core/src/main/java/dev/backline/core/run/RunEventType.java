@@ -11,5 +11,8 @@ public enum RunEventType {
     COMPLETED,
     FAILED,
     ERRORED,
-    RETRY_SCHEDULED
+    RETRY_SCHEDULED,
+    STALE_RECOVERED,
+    CANCELLED,
+    TIMED_OUT
 }
