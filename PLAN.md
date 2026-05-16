@@ -20,8 +20,8 @@ DROPPED
 
 ```txt
 ACTIVE: none
-BLOCKED: Testcontainers verification (Docker engine not reachable from Gradle; `clean build` fails at `:apps:api:test`)
-DONE: Tasks 1-6, integration fixes A-E, non-Testcontainers verification matrix
+BLOCKED: none
+DONE: Tasks 1-6, integration fixes A-E, Testcontainers verification, worker hardening, perf harness
 DROPPED: none
 ```
 
@@ -156,12 +156,14 @@ After Tasks 2-6 finish, a single integration agent:
 
 ```txt
 Task 1 (skeleton):                        DONE
-Task 2 (db/persistence):                  DONE (code; Testcontainers tests need Docker)
-Task 3 (api):                             DONE (code; Testcontainers tests need Docker)
+Task 2 (db/persistence):                  DONE
+Task 3 (api):                             DONE
 Task 4 (config/cli):                      DONE
-Task 5 (worker/executor):                 DONE (code; Testcontainers tests need Docker)
+Task 5 (worker/executor):                 DONE
 Task 6 (sample/report/docker/docs):       DONE
-Integration pass:                         DONE (reconciliation; full `clean build` blocked without Docker)
+Integration pass:                         DONE
+Worker hardening:                         DONE (stale recovery, timeout, cancellation, structured logs)
+Perf harness:                             DONE (smoke, small, multi-worker profiles)
 ```
 
 ### Frozen contracts (Tasks 2-6 must consume as-is)
