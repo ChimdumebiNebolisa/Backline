@@ -1,5 +1,7 @@
 package dev.backline.worker.support;
 
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeAll;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -16,15 +18,32 @@ import dev.backline.worker.WorkerApplication;
  * test JVM. This avoids Spring context caching conflicts that occur when {@code @Container}
  * stops/restarts the container per test class while Spring reuses a cached context pointing
  * at the old container port.
+ *
+ * <p>If Docker is not available, all tests in subclasses are skipped gracefully.
  */
 @SpringBootTest(classes = WorkerApplication.class)
 @ActiveProfiles("test")
 public abstract class PostgresWorkerTestBase {
 
     protected static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
+    private static final boolean DOCKER_AVAILABLE;
 
     static {
-        POSTGRES.start();
+        boolean started = false;
+        try {
+            POSTGRES.start();
+            started = true;
+        } catch (Exception e) {
+            // Docker/Testcontainers not available in this environment
+        }
+        DOCKER_AVAILABLE = started;
+    }
+
+    @BeforeAll
+    static void requireDockerForTests() {
+        Assumptions.assumeTrue(DOCKER_AVAILABLE,
+                "Docker is not available — Testcontainers tests skipped. "
+                        + "Start Docker Desktop and retry. See README.md troubleshooting.");
     }
 
     @DynamicPropertySource
