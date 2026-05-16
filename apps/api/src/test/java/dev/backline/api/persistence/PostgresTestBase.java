@@ -39,9 +39,16 @@ public abstract class PostgresTestBase {
 
     @BeforeAll
     static void requireDockerForTests() {
-        Assumptions.assumeTrue(DOCKER_AVAILABLE,
-                "Docker is not available — Testcontainers tests skipped. "
-                        + "Start Docker Desktop and retry. See README.md troubleshooting.");
+        if (!DOCKER_AVAILABLE) {
+            if ("true".equalsIgnoreCase(System.getenv("CI"))) {
+                throw new IllegalStateException(
+                        "Docker is required for Testcontainers tests in CI. "
+                                + "Enable Docker on the CI runner and retry.");
+            }
+            Assumptions.assumeTrue(false,
+                    "Docker is not available — Testcontainers tests skipped. "
+                            + "Start Docker Desktop and retry. See README.md troubleshooting.");
+        }
     }
 
     @DynamicPropertySource
