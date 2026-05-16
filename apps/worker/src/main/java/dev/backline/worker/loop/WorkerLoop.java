@@ -20,12 +20,11 @@ import java.util.List;
 /**
  * Polls the database for queued runs, executes checks, persists results, and finalizes runs.
  *
+ * <p>Periodically scans for stale RUNNING runs (worker crash recovery) and returns them to
+ * QUEUED or marks them ERROR based on the retry policy.
+ *
  * <p>This worker does not open an HTTP port; operators should treat the process staying up and
  * structured logs as the primary liveness signal.
- *
- * <p>If request headers are ever threaded into {@link HttpCheckRequest}, log lines must redact
- * values for {@code Authorization}, {@code Cookie}, and {@code Set-Cookie} using {@link
- * dev.backline.core.constants.SensitiveHeaders}.
  */
 public class WorkerLoop {
 
@@ -38,6 +37,7 @@ public class WorkerLoop {
 
     private volatile boolean stopped;
     private Thread workerThread;
+    private long lastStaleRecoveryMs;
 
     public WorkerLoop(WorkerProperties props, WorkerRunDao dao, HttpCheckExecutor executor, ObjectMapper mapper) {
         this.props = props;
@@ -51,9 +51,11 @@ public class WorkerLoop {
             return;
         }
         stopped = false;
+        lastStaleRecoveryMs = System.currentTimeMillis();
         workerThread = new Thread(this::pollLoop, "backline-worker-loop");
         workerThread.setDaemon(true);
         workerThread.start();
+        log.info("Worker started workerId={}", props.getId());
     }
 
     public void stop() {
@@ -66,42 +68,62 @@ public class WorkerLoop {
             }
             workerThread = null;
         }
+        log.info("Worker stopped workerId={}", props.getId());
     }
 
     private void pollLoop() {
         while (!stopped) {
             try {
-                var claimed = dao.claimNextRun(props.getId());
+                recoverStaleRunsIfDue();
+
+                var claimed = dao.claimNextRun(props.getId(), props.getJobTimeoutMs());
                 if (claimed.isEmpty()) {
                     sleepQuietly(props.getPollIntervalMs());
                     continue;
                 }
 
                 ClaimedRun run = claimed.get();
-                log.info(
-                        "Claimed run runId={} projectId={} environment={} attempt={}",
-                        run.runId(),
-                        run.projectId(),
-                        run.environment(),
-                        run.attemptCount());
+                log.info("run.claimed runId={} projectId={} environment={} workerId={} attempt={}",
+                        run.runId(), run.projectId(), run.environment(), props.getId(), run.attemptCount());
                 try {
                     processRun(run);
                 } catch (Exception ex) {
-                    log.error("Worker runtime error while processing run {}", run.runId(), ex);
+                    log.error("run.error runId={} workerId={} attempt={} error={}",
+                            run.runId(), props.getId(), run.attemptCount(), ex.getMessage());
                     handleWorkerFailure(run, ex);
                 }
             } catch (Exception ex) {
-                log.error("Worker loop error", ex);
+                log.error("Worker loop error workerId={}", props.getId(), ex);
                 sleepQuietly(props.getPollIntervalMs());
+            }
+        }
+    }
+
+    private void recoverStaleRunsIfDue() {
+        long now = System.currentTimeMillis();
+        long interval = Math.max(props.getStaleThresholdMs() / 2, 10_000);
+        if (now - lastStaleRecoveryMs >= interval) {
+            lastStaleRecoveryMs = now;
+            try {
+                int recovered = dao.recoverStaleRuns(
+                        props.getStaleThresholdMs(), props.getMaxAttempts(), props.getRetryBackoffMs());
+                if (recovered > 0) {
+                    log.info("stale.recovered count={} workerId={}", recovered, props.getId());
+                }
+            } catch (Exception ex) {
+                log.error("Stale recovery error workerId={}", props.getId(), ex);
             }
         }
     }
 
     private void handleWorkerFailure(ClaimedRun run, Exception ex) {
         if (run.attemptCount() >= props.getMaxAttempts()) {
+            log.warn("run.maxAttemptsExhausted runId={} workerId={} attempts={}",
+                    run.runId(), props.getId(), run.attemptCount());
             dao.finalizeRun(run.runId(), RunStatus.ERROR, "Worker error after max attempts: " + ex.getMessage());
         } else {
-            log.warn("Scheduling retry for run {} after worker error", run.runId(), ex);
+            log.info("run.retryScheduled runId={} workerId={} attempt={} backoffMs={}",
+                    run.runId(), props.getId(), run.attemptCount(), props.getRetryBackoffMs());
             dao.requeueForRetry(run.runId(), props.getRetryBackoffMs());
         }
     }
@@ -117,6 +139,12 @@ public class WorkerLoop {
         boolean anyFailed = false;
 
         for (CheckRow check : checks) {
+            if (dao.isRunCancelled(run.runId())) {
+                log.info("run.cancelled runId={} workerId={} stoppedBeforeCheck={}",
+                        run.runId(), props.getId(), check.key());
+                return;
+            }
+
             HttpCheckRequest request = new HttpCheckRequest(
                     check.checkId() == null ? null : check.checkId().toString(),
                     check.key(),
@@ -128,13 +156,10 @@ public class WorkerLoop {
                     check.assertions(),
                     null);
 
+            log.info("check.started runId={} checkKey={} workerId={}", run.runId(), check.key(), props.getId());
             HttpCheckOutcome outcome = executor.execute(request);
-            log.info(
-                    "Check finished runId={} checkKey={} status={} latencyMs={}",
-                    run.runId(),
-                    check.key(),
-                    outcome.status(),
-                    outcome.latencyMs());
+            log.info("check.completed runId={} checkKey={} status={} latencyMs={} workerId={}",
+                    run.runId(), check.key(), outcome.status(), outcome.latencyMs(), props.getId());
 
             if (outcome.status() == CheckResultStatus.ERROR) {
                 anyError = true;
@@ -158,8 +183,15 @@ public class WorkerLoop {
                             assertionsJson));
         }
 
+        if (dao.isRunCancelled(run.runId())) {
+            log.info("run.cancelled runId={} workerId={} afterAllChecks=true", run.runId(), props.getId());
+            return;
+        }
+
         RunStatus terminal = anyError ? RunStatus.ERROR : anyFailed ? RunStatus.FAILED : RunStatus.PASSED;
         dao.finalizeRun(run.runId(), terminal);
+        log.info("run.completed runId={} status={} workerId={} attempt={}",
+                run.runId(), terminal, props.getId(), run.attemptCount());
     }
 
     private void sleepQuietly(long millis) {

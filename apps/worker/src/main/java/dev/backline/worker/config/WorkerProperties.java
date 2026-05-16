@@ -14,6 +14,8 @@ public class WorkerProperties {
     private long retryBackoffMs = 5000L;
     private long httpConnectTimeoutMs = 5000L;
     private long httpRequestTimeoutMs = 30000L;
+    private long staleThresholdMs = 300_000L;
+    private long jobTimeoutMs = 600_000L;
 
     public String getId() {
         return id;
@@ -61,5 +63,21 @@ public class WorkerProperties {
 
     public void setHttpRequestTimeoutMs(long httpRequestTimeoutMs) {
         this.httpRequestTimeoutMs = httpRequestTimeoutMs;
+    }
+
+    public long getStaleThresholdMs() {
+        return staleThresholdMs;
+    }
+
+    public void setStaleThresholdMs(long staleThresholdMs) {
+        this.staleThresholdMs = staleThresholdMs;
+    }
+
+    public long getJobTimeoutMs() {
+        return jobTimeoutMs;
+    }
+
+    public void setJobTimeoutMs(long jobTimeoutMs) {
+        this.jobTimeoutMs = jobTimeoutMs;
     }
 }
