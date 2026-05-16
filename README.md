@@ -108,6 +108,18 @@ Focused:
 
 Windows: prefix with `.\gradlew.bat`.
 
+## Performance testing
+
+Backline includes a local perf harness under [perf/README.md](perf/README.md).
+
+```powershell
+.\perf\run-local.ps1 -Profile smoke
+.\perf\run-local.ps1 -Profile small
+.\perf\run-local.ps1 -Profile multi-worker
+```
+
+Detailed setup, outputs, limitations, and pass/fail criteria live in `perf/README.md`.
+
 ## Module layout
 
 ```txt

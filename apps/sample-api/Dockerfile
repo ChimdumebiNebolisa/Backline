@@ -3,7 +3,8 @@
 FROM gradle:8.10-jdk21 AS builder
 WORKDIR /workspace
 COPY . .
-RUN chmod +x gradlew \
+RUN sed -i 's/\r$//' gradlew \
+    && chmod +x gradlew \
     && ./gradlew :apps:sample-api:bootJar --no-daemon -x test \
     && cp "$(ls apps/sample-api/build/libs/*.jar | grep -v plain | head -n 1)" /workspace/app.jar
 

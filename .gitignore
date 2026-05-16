@@ -28,3 +28,11 @@ target/
 # Local data volumes
 /data/
 /pgdata/
+
+# Local performance artifacts
+/perf/out/*
+!/perf/out/.gitkeep
+!/perf/out/*-summary.txt
+!/perf/out/queue-load-smoke.json
+!/perf/out/queue-load-small.json
+!/perf/out/queue-load-multi-worker.json
