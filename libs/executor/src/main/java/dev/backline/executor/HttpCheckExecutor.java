@@ -16,6 +16,9 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
@@ -260,7 +263,19 @@ public final class HttpCheckExecutor {
         if (bytes.length <= max) {
             return body;
         }
-        String truncated = new String(bytes, 0, max, StandardCharsets.UTF_8);
+        String truncated = decodeUtf8Preview(bytes, max);
         return truncated + "...[truncated]";
+    }
+
+    private static String decodeUtf8Preview(byte[] bytes, int maxBytes) {
+        try {
+            return StandardCharsets.UTF_8.newDecoder()
+                    .onMalformedInput(CodingErrorAction.IGNORE)
+                    .onUnmappableCharacter(CodingErrorAction.IGNORE)
+                    .decode(ByteBuffer.wrap(bytes, 0, maxBytes))
+                    .toString();
+        } catch (CharacterCodingException ex) {
+            throw new IllegalStateException("Failed to decode response preview", ex);
+        }
     }
 }

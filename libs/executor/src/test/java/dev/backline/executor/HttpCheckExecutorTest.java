@@ -244,6 +244,29 @@ class HttpCheckExecutorTest {
     }
 
     @Test
+    void responsePreviewTruncatesMultibyteBodyWithinByteLimit() {
+        String body = "\u20AC".repeat(ResponseLimits.RESPONSE_PREVIEW_MAX_BYTES);
+        server.enqueue(new MockResponse().setBody(body));
+        HttpCheckExecutor executor = new HttpCheckExecutor(defaultClient(), mapper);
+
+        HttpCheckRequest request = new HttpCheckRequest(
+                null,
+                "k",
+                "n",
+                HttpMethod.GET,
+                server.url("/").toString(),
+                200,
+                null,
+                null,
+                null);
+
+        HttpCheckOutcome outcome = executor.execute(request);
+        assertThat(outcome.responsePreview()).endsWith("...[truncated]");
+        byte[] previewBytes = outcome.responsePreview().replace("...[truncated]", "").getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(previewBytes.length).isLessThanOrEqualTo(ResponseLimits.RESPONSE_PREVIEW_MAX_BYTES);
+    }
+
+    @Test
     void invalidUrlReturnsInvalidUrlError() {
         HttpCheckExecutor executor = new HttpCheckExecutor(defaultClient(), mapper);
         HttpCheckRequest request = new HttpCheckRequest(
