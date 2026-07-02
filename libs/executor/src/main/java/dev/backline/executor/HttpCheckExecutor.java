@@ -180,8 +180,10 @@ public final class HttpCheckExecutor {
 
         List<AssertionDto> assertionDefs = request.assertions() == null ? List.of() : request.assertions();
         List<AssertionResultDto> assertionResults = List.of();
-        if (!assertionDefs.isEmpty() && !body.isEmpty()) {
-            assertionResults = evaluateAssertions(assertionDefs, body);
+        if (!assertionDefs.isEmpty()) {
+            assertionResults = body.isEmpty()
+                    ? failAssertionsForEmptyBody(assertionDefs)
+                    : evaluateAssertions(assertionDefs, body);
             boolean anyFailed = assertionResults.stream().anyMatch(r -> !r.passed());
             if (anyFailed) {
                 status = CheckResultStatus.FAILED;
@@ -198,6 +200,20 @@ public final class HttpCheckExecutor {
         }
 
         return new HttpCheckOutcome(status, actualStatus, latencyMs, errorCode, errorMessage, preview, assertionResults);
+    }
+
+    private static List<AssertionResultDto> failAssertionsForEmptyBody(List<AssertionDto> assertions) {
+        List<AssertionResultDto> results = new ArrayList<>();
+        for (AssertionDto assertion : assertions) {
+            results.add(new AssertionResultDto(
+                    assertion.path(),
+                    assertion.equalsValue(),
+                    assertion.exists(),
+                    null,
+                    false,
+                    "Response body was empty"));
+        }
+        return results;
     }
 
     private List<AssertionResultDto> evaluateAssertions(List<AssertionDto> assertions, String body) {

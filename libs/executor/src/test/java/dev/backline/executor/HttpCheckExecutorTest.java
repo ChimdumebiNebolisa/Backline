@@ -219,6 +219,29 @@ class HttpCheckExecutorTest {
     }
 
     @Test
+    void assertionExistsFailsWhenBodyIsEmpty() {
+        server.enqueue(new MockResponse().setBody(""));
+        HttpCheckExecutor executor = new HttpCheckExecutor(defaultClient(), mapper);
+
+        HttpCheckRequest request = new HttpCheckRequest(
+                null,
+                "k",
+                "n",
+                HttpMethod.GET,
+                server.url("/").toString(),
+                200,
+                null,
+                List.of(new AssertionDto("$.id", null, true)),
+                null);
+
+        HttpCheckOutcome outcome = executor.execute(request);
+        assertThat(outcome.status()).isEqualTo(CheckResultStatus.FAILED);
+        assertThat(outcome.errorCode()).isEqualTo("ASSERTION_FAILED");
+        assertThat(outcome.assertionResults()).hasSize(1);
+        assertThat(outcome.assertionResults().getFirst().passed()).isFalse();
+    }
+
+    @Test
     void responsePreviewTruncatesLargeBody() {
         int size = ResponseLimits.RESPONSE_PREVIEW_MAX_BYTES + 100;
         StringBuilder sb = new StringBuilder(size);
