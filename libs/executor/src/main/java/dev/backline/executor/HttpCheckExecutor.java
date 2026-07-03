@@ -182,7 +182,7 @@ public final class HttpCheckExecutor {
         List<AssertionResultDto> assertionResults = List.of();
         if (!assertionDefs.isEmpty()) {
             assertionResults = body.isEmpty()
-                    ? failAssertionsForEmptyBody(assertionDefs)
+                    ? evaluateAssertionsForEmptyBody(assertionDefs)
                     : evaluateAssertions(assertionDefs, body);
             boolean anyFailed = assertionResults.stream().anyMatch(r -> !r.passed());
             if (anyFailed) {
@@ -202,9 +202,19 @@ public final class HttpCheckExecutor {
         return new HttpCheckOutcome(status, actualStatus, latencyMs, errorCode, errorMessage, preview, assertionResults);
     }
 
-    private static List<AssertionResultDto> failAssertionsForEmptyBody(List<AssertionDto> assertions) {
+    private static List<AssertionResultDto> evaluateAssertionsForEmptyBody(List<AssertionDto> assertions) {
         List<AssertionResultDto> results = new ArrayList<>();
         for (AssertionDto assertion : assertions) {
+            if (Boolean.FALSE.equals(assertion.exists())) {
+                results.add(new AssertionResultDto(
+                        assertion.path(),
+                        assertion.equalsValue(),
+                        assertion.exists(),
+                        null,
+                        true,
+                        null));
+                continue;
+            }
             results.add(new AssertionResultDto(
                     assertion.path(),
                     assertion.equalsValue(),
@@ -238,9 +248,13 @@ public final class HttpCheckExecutor {
         Boolean expectedExists = assertion.exists();
         Object expectedEquals = assertion.equalsValue();
 
-        if (expectedExists != null && expectedExists) {
-            boolean passed = pathPresent;
-            String message = passed ? null : "Expected JSONPath to exist: " + path;
+        if (expectedExists != null) {
+            boolean passed = pathPresent == expectedExists;
+            String message = passed
+                    ? null
+                    : expectedExists
+                            ? "Expected JSONPath to exist: " + path
+                            : "Expected JSONPath to be absent: " + path;
             return new AssertionResultDto(path, expectedEquals, expectedExists, actual, passed, message);
         }
 
