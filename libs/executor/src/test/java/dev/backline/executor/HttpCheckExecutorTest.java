@@ -219,6 +219,52 @@ class HttpCheckExecutorTest {
     }
 
     @Test
+    void assertionExistsFalsePassesWhenMissing() {
+        server.enqueue(new MockResponse().setBody("{\"id\":1}"));
+        HttpCheckExecutor executor = new HttpCheckExecutor(defaultClient(), mapper);
+
+        HttpCheckRequest request = new HttpCheckRequest(
+                null,
+                "k",
+                "n",
+                HttpMethod.GET,
+                server.url("/").toString(),
+                200,
+                null,
+                List.of(new AssertionDto("$.missing", null, false)),
+                null);
+
+        HttpCheckOutcome outcome = executor.execute(request);
+        assertThat(outcome.status()).isEqualTo(CheckResultStatus.PASSED);
+        assertThat(outcome.assertionResults()).hasSize(1);
+        assertThat(outcome.assertionResults().getFirst().passed()).isTrue();
+    }
+
+    @Test
+    void assertionExistsFalseFailsWhenPresent() {
+        server.enqueue(new MockResponse().setBody("{\"id\":1}"));
+        HttpCheckExecutor executor = new HttpCheckExecutor(defaultClient(), mapper);
+
+        HttpCheckRequest request = new HttpCheckRequest(
+                null,
+                "k",
+                "n",
+                HttpMethod.GET,
+                server.url("/").toString(),
+                200,
+                null,
+                List.of(new AssertionDto("$.id", null, false)),
+                null);
+
+        HttpCheckOutcome outcome = executor.execute(request);
+        assertThat(outcome.status()).isEqualTo(CheckResultStatus.FAILED);
+        assertThat(outcome.errorCode()).isEqualTo("ASSERTION_FAILED");
+        assertThat(outcome.assertionResults()).hasSize(1);
+        assertThat(outcome.assertionResults().getFirst().passed()).isFalse();
+        assertThat(outcome.assertionResults().getFirst().message()).contains("Expected JSONPath to be absent");
+    }
+
+    @Test
     void assertionExistsFailsWhenBodyIsEmpty() {
         server.enqueue(new MockResponse().setBody(""));
         HttpCheckExecutor executor = new HttpCheckExecutor(defaultClient(), mapper);
@@ -239,6 +285,28 @@ class HttpCheckExecutorTest {
         assertThat(outcome.errorCode()).isEqualTo("ASSERTION_FAILED");
         assertThat(outcome.assertionResults()).hasSize(1);
         assertThat(outcome.assertionResults().getFirst().passed()).isFalse();
+    }
+
+    @Test
+    void assertionExistsFalsePassesWhenBodyIsEmpty() {
+        server.enqueue(new MockResponse().setBody(""));
+        HttpCheckExecutor executor = new HttpCheckExecutor(defaultClient(), mapper);
+
+        HttpCheckRequest request = new HttpCheckRequest(
+                null,
+                "k",
+                "n",
+                HttpMethod.GET,
+                server.url("/").toString(),
+                200,
+                null,
+                List.of(new AssertionDto("$.id", null, false)),
+                null);
+
+        HttpCheckOutcome outcome = executor.execute(request);
+        assertThat(outcome.status()).isEqualTo(CheckResultStatus.PASSED);
+        assertThat(outcome.assertionResults()).hasSize(1);
+        assertThat(outcome.assertionResults().getFirst().passed()).isTrue();
     }
 
     @Test
