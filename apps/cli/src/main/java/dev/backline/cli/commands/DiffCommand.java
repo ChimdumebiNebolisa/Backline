@@ -1,13 +1,16 @@
 package dev.backline.cli.commands;
 
 import dev.backline.cli.Backline;
+import dev.backline.cli.client.ApiClientException;
 import dev.backline.cli.client.BacklineApiClient;
+import dev.backline.core.api.dto.RunDiffDto;
 import dev.backline.core.api.dto.RunDiffChangeType;
 import dev.backline.core.api.dto.RunDiffEntry;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Parameters;
 import picocli.CommandLine.ParentCommand;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
@@ -28,7 +31,16 @@ public class DiffCommand implements Callable<Integer> {
     @Override
     public Integer call() throws Exception {
         BacklineApiClient client = new BacklineApiClient(parent.apiUrl());
-        var diff = client.getRunDiff(runId);
+        RunDiffDto diff;
+        try {
+            diff = client.getRunDiff(runId);
+        } catch (ApiClientException e) {
+            return CliApiErrors.print(parent.apiUrl(), e);
+        } catch (InterruptedException e) {
+            return CliApiErrors.printInterrupted();
+        } catch (IOException e) {
+            return CliApiErrors.print(parent.apiUrl(), e);
+        }
         Map<RunDiffChangeType, List<RunDiffEntry>> grouped = new EnumMap<>(RunDiffChangeType.class);
         List<RunDiffEntry> entries = diff.entries() == null ? List.of() : diff.entries();
         for (RunDiffEntry e : entries) {
