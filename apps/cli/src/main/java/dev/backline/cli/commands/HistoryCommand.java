@@ -1,14 +1,17 @@
 package dev.backline.cli.commands;
 
 import dev.backline.cli.Backline;
+import dev.backline.cli.client.ApiClientException;
 import dev.backline.cli.client.BacklineApiClient;
 import dev.backline.cli.client.RunListQuery;
 import dev.backline.cli.output.OutputPrinter;
 import dev.backline.config.ConfigParser;
+import dev.backline.core.api.dto.RunDto;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.ParentCommand;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.format.DateTimeFormatter;
@@ -56,8 +59,17 @@ public class HistoryCommand implements Callable<Integer> {
                 }
             }
         }
-        BacklineApiClient client = new BacklineApiClient(parent.apiUrl());
-        var runs = client.listRuns(new RunListQuery(projectSlug, env, status, limit, offset));
+        List<RunDto> runs;
+        try {
+            BacklineApiClient client = new BacklineApiClient(parent.apiUrl());
+            runs = client.listRuns(new RunListQuery(projectSlug, env, status, limit, offset));
+        } catch (ApiClientException e) {
+            return CliApiErrors.print(parent.apiUrl(), e);
+        } catch (InterruptedException e) {
+            return CliApiErrors.printInterrupted();
+        } catch (IOException e) {
+            return CliApiErrors.print(parent.apiUrl(), e);
+        }
         OutputPrinter out = new OutputPrinter();
         List<List<String>> rows = new ArrayList<>();
         for (var r : runs) {

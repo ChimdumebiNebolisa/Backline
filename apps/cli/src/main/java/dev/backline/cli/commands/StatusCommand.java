@@ -1,14 +1,19 @@
 package dev.backline.cli.commands;
 
 import dev.backline.cli.Backline;
+import dev.backline.cli.client.ApiClientException;
 import dev.backline.cli.client.BacklineApiClient;
+import dev.backline.core.api.dto.CheckResultDto;
+import dev.backline.core.api.dto.RunDto;
 import dev.backline.core.check.CheckResultStatus;
 import dev.backline.core.run.RunStatus;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Parameters;
 import picocli.CommandLine.ParentCommand;
 
+import java.io.IOException;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Callable;
@@ -26,9 +31,20 @@ public class StatusCommand implements Callable<Integer> {
     @Override
     public Integer call() throws Exception {
         BacklineApiClient client = new BacklineApiClient(parent.apiUrl());
-        var run = client.getRun(runId);
+        RunDto run;
+        List<CheckResultDto> results;
+        try {
+            run = client.getRun(runId);
+            results = client.getRunResults(runId);
+        } catch (ApiClientException e) {
+            return CliApiErrors.print(parent.apiUrl(), e);
+        } catch (InterruptedException e) {
+            return CliApiErrors.printInterrupted();
+        } catch (IOException e) {
+            return CliApiErrors.print(parent.apiUrl(), e);
+        }
         Map<CheckResultStatus, Long> counts = new EnumMap<>(CheckResultStatus.class);
-        for (var r : client.getRunResults(runId)) {
+        for (var r : results) {
             counts.merge(r.status(), 1L, Long::sum);
         }
         StringBuilder sb = new StringBuilder();
