@@ -151,5 +151,24 @@ class CheckControllerTest extends PostgresTestBase {
         ResponseEntity<String> badUrlRes = restTemplate.postForEntity(
                 "/api/checks/sync", new HttpEntity<>(badUrl, headers), String.class);
         assertThat(badUrlRes.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+
+        String hostlessUrl = objectMapper.writeValueAsString(Map.of(
+                "projectSlug",
+                slug,
+                "checks",
+                List.of(Map.of(
+                        "key",
+                        "h",
+                        "name",
+                        "H",
+                        "method",
+                        "GET",
+                        "url",
+                        "http:///health",
+                        "expectedStatus",
+                        200))));
+        ResponseEntity<String> hostlessUrlRes = restTemplate.postForEntity(
+                "/api/checks/sync", new HttpEntity<>(hostlessUrl, headers), String.class);
+        assertThat(hostlessUrlRes.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     }
 }

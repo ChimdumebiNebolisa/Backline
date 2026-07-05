@@ -378,6 +378,26 @@ class HttpCheckExecutorTest {
     }
 
     @Test
+    void hostlessHttpUrlReturnsInvalidUrlError() {
+        HttpCheckExecutor executor = new HttpCheckExecutor(defaultClient(), mapper);
+        HttpCheckRequest request = new HttpCheckRequest(
+                null,
+                "k",
+                "n",
+                HttpMethod.GET,
+                "http:///health",
+                200,
+                null,
+                null,
+                null);
+
+        HttpCheckOutcome outcome = executor.execute(request);
+        assertThat(outcome.status()).isEqualTo(CheckResultStatus.ERROR);
+        assertThat(outcome.errorCode()).isEqualTo("INVALID_URL");
+        assertThat(outcome.latencyMs()).isNull();
+    }
+
+    @Test
     void redirectsAreNotFollowed() {
         server.enqueue(
                 new MockResponse()

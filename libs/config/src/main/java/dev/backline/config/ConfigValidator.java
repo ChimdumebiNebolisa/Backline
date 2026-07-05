@@ -114,6 +114,9 @@ public final class ConfigValidator {
         if (scheme == null || (!scheme.equalsIgnoreCase("http") && !scheme.equalsIgnoreCase("https"))) {
             throw new ConfigParseException("url must use http or https scheme", field);
         }
+        if (isBlank(uri.getHost())) {
+            throw new ConfigParseException("url must include a host", field);
+        }
     }
 
     private static boolean isBlank(String s) {

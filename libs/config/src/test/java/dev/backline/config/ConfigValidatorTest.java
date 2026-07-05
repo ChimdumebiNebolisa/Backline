@@ -52,6 +52,13 @@ class ConfigValidatorTest {
     }
 
     @Test
+    void rejectsHostlessHttpUrl() {
+        CheckDefinition bad = new CheckDefinition("a", "n", HttpMethod.GET, "http:///health", 200, null, null);
+        BacklineConfig cfg = new BacklineConfig("p", "e", List.of(bad));
+        assertThatThrownBy(() -> ConfigValidator.validate(cfg)).isInstanceOf(ConfigParseException.class);
+    }
+
+    @Test
     void rejectsExpectedStatusTooLow() {
         CheckDefinition bad = new CheckDefinition("a", "n", HttpMethod.GET, "http://localhost/x", 99, null, null);
         BacklineConfig cfg = new BacklineConfig("p", "e", List.of(bad));

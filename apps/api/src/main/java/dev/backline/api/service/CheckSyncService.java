@@ -117,8 +117,10 @@ public class CheckSyncService {
     private static void validateAbsoluteUrl(String url) {
         try {
             URI uri = URI.create(url.trim());
-            if (!uri.isAbsolute() || uri.getScheme() == null || !uri.getScheme().equalsIgnoreCase("http")
-                    && !uri.getScheme().equalsIgnoreCase("https")) {
+            String scheme = uri.getScheme();
+            boolean supportedScheme = scheme != null
+                    && (scheme.equalsIgnoreCase("http") || scheme.equalsIgnoreCase("https"));
+            if (!uri.isAbsolute() || !supportedScheme || uri.getHost() == null || uri.getHost().isBlank()) {
                 throw new ValidationFailedException("url must be an absolute http(s) URL", "checks");
             }
         } catch (IllegalArgumentException ex) {

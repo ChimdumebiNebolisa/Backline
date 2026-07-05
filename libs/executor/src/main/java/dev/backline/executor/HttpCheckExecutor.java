@@ -86,6 +86,9 @@ public final class HttpCheckExecutor {
         if (scheme == null || (!scheme.equalsIgnoreCase("http") && !scheme.equalsIgnoreCase("https"))) {
             return invalidUrlOutcome("INVALID_URL", "URL scheme must be http or https");
         }
+        if (uri.getHost() == null || uri.getHost().isBlank()) {
+            return invalidUrlOutcome("INVALID_URL", "URL must include a host");
+        }
 
         HttpRequest httpRequest = buildHttpRequest(request, uri);
 
