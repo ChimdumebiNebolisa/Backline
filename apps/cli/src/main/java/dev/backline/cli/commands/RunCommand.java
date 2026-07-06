@@ -49,6 +49,11 @@ public class RunCommand implements Callable<Integer> {
 
     @Override
     public Integer call() throws Exception {
+        if (!noWait && timeoutSeconds <= 0) {
+            System.err.println("--timeout-seconds must be greater than zero.");
+            return 2;
+        }
+
         ConfigParser parser = new ConfigParser();
         BacklineConfig config;
         try {

@@ -62,6 +62,21 @@ class RunCommandTest {
         }
     }
 
+    @Test
+    void runRejectsNonPositiveTimeoutBeforeReadingConfig() {
+        ByteArrayOutputStream err = new ByteArrayOutputStream();
+        PrintStream oldErr = System.err;
+        System.setErr(new PrintStream(err, true, StandardCharsets.UTF_8));
+        try {
+            int code = new CommandLine(new Backline()).execute("run", "--timeout-seconds", "0");
+
+            assertThat(code).isEqualTo(2);
+            assertThat(err.toString(StandardCharsets.UTF_8)).contains("--timeout-seconds must be greater than zero");
+        } finally {
+            System.setErr(oldErr);
+        }
+    }
+
     private static void handle(HttpExchange exchange) throws IOException {
         try (var in = exchange.getRequestBody()) {
             in.readAllBytes();
