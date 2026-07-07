@@ -9,6 +9,7 @@ import dev.backline.api.mapper.CheckMapper;
 import dev.backline.api.persistence.entity.CheckEntity;
 import dev.backline.api.persistence.entity.ProjectEntity;
 import dev.backline.api.persistence.repository.CheckRepository;
+import dev.backline.core.api.dto.AssertionDto;
 import dev.backline.core.api.dto.CheckDefinitionDto;
 import dev.backline.core.api.dto.CheckDto;
 import dev.backline.core.api.dto.CheckSyncRequest;
@@ -110,6 +111,25 @@ public class CheckSyncService {
             }
             if (c.maxLatencyMs() != null && c.maxLatencyMs() <= 0) {
                 throw new ValidationFailedException("max_latency_ms must be greater than zero when present", "checks");
+            }
+            validateAssertions(c.assertions());
+        }
+    }
+
+    private static void validateAssertions(List<AssertionDto> assertions) {
+        if (assertions == null) {
+            return;
+        }
+        for (var assertion : assertions) {
+            if (assertion == null) {
+                throw new ValidationFailedException("assertion must not be null", "checks.assertions");
+            }
+            if (assertion.path() == null || assertion.path().isBlank()) {
+                throw new ValidationFailedException("assertion path must not be blank", "checks.assertions");
+            }
+            if (assertion.equalsValue() == null && assertion.exists() == null) {
+                throw new ValidationFailedException(
+                        "assertion must set at least one of equals or exists", "checks.assertions");
             }
         }
     }

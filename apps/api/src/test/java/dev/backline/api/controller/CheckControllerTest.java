@@ -171,4 +171,39 @@ class CheckControllerTest extends PostgresTestBase {
                 "/api/checks/sync", new HttpEntity<>(hostlessUrl, headers), String.class);
         assertThat(hostlessUrlRes.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     }
+
+    @Test
+    void syncRejectsAssertionWithoutOperation() throws Exception {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        String slug = "chk-" + UUID.randomUUID().toString().substring(0, 8);
+
+        Map<String, Object> request = Map.of(
+                "projectSlug",
+                slug,
+                "checks",
+                List.of(Map.of(
+                        "key",
+                        "assertion",
+                        "name",
+                        "Assertion",
+                        "method",
+                        "GET",
+                        "url",
+                        "http://localhost:8081/health",
+                        "expectedStatus",
+                        200,
+                        "assertions",
+                        List.of(Map.of("path", "$.id")))));
+
+        ResponseEntity<String> response = restTemplate.postForEntity(
+                "/api/checks/sync",
+                new HttpEntity<>(objectMapper.writeValueAsString(request), headers),
+                String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        var error = objectMapper.readTree(response.getBody()).path("error");
+        assertThat(error.path("message").asText()).contains("assertion must set at least one of equals or exists");
+        assertThat(error.path("field").asText()).isEqualTo("checks.assertions");
+    }
 }
