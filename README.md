@@ -185,6 +185,13 @@ docs/           API examples, limitations, demo script
 Copy/paste **curl** samples: [docs/api-examples.md](docs/api-examples.md).
 
 CI integration and policy gating details: [docs/ci-integration.md](docs/ci-integration.md).
+Quality and runtime hardening checklist: [docs/audit-playbook.md](docs/audit-playbook.md).
+
+Quick audit command:
+
+```bash
+./scripts/audit-strength.sh
+```
 
 ## Demo path (detailed)
 
