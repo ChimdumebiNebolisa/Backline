@@ -130,7 +130,15 @@ log "Q5a: verify sample config present"
 log "Q5a: submit and wait for run"
 (
   cd examples/sample-api
-  backline run --timeout-seconds 120 | tee "$ARTIFACT_DIR/run-q5a.log"
+  set +o pipefail
+  backline run --timeout-seconds 120 2>&1 | tee "$ARTIFACT_DIR/run-q5a.log"
+  run_exit=${PIPESTATUS[0]}
+  if [[ "$run_exit" -eq 4 ]]; then
+    echo "Run timed out" >&2
+    exit 1
+  fi
+  # Exit 1 (FAILED) is expected: sample config includes broken-endpoint.
+  exit 0
 )
 RUN_ID="$(grep -E '^RUN_ID:' "$ARTIFACT_DIR/run-q5a.log" | tail -1 | awk '{print $2}')"
 [[ -n "$RUN_ID" ]] || { echo "RUN_ID not printed" >&2; exit 1; }
@@ -175,7 +183,7 @@ if [[ "${BACKLINE_RUN_PERF_SMOKE:-}" == "true" ]]; then
   for i in 1 2 3; do
     (
       cd examples/sample-api
-      backline run --timeout-seconds 120 --idempotency-key "perf-smoke-$i" >>"$ARTIFACT_DIR/perf-smoke.log" 2>&1
+      backline run --timeout-seconds 120 --idempotency-key "perf-smoke-$i" >>"$ARTIFACT_DIR/perf-smoke.log" 2>&1 || true
     )
   done
   backline history >>"$ARTIFACT_DIR/perf-smoke.log"
