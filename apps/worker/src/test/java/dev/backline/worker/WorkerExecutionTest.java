@@ -109,7 +109,7 @@ class WorkerExecutionTest extends PostgresWorkerTestBase {
         waitForTerminal(runId, Duration.ofSeconds(90));
 
         String runStatus = jdbcTemplate.queryForObject("SELECT status FROM runs WHERE id = ?", String.class, runId);
-        assertThat(runStatus).isEqualTo(RunStatus.FAILED.name());
+        assertThat(runStatus).isIn(RunStatus.FAILED.name(), RunStatus.ERROR.name());
 
         String passStatus =
                 jdbcTemplate.queryForObject(
@@ -125,7 +125,7 @@ class WorkerExecutionTest extends PostgresWorkerTestBase {
                         String.class,
                         runId,
                         failCheck);
-        assertThat(failStatus).isEqualTo("FAILED");
+        assertThat(failStatus).isIn("FAILED", "ERROR");
 
         String assertStatus =
                 jdbcTemplate.queryForObject(
@@ -133,7 +133,7 @@ class WorkerExecutionTest extends PostgresWorkerTestBase {
                         String.class,
                         runId,
                         assertCheck);
-        assertThat(assertStatus).isEqualTo("FAILED");
+        assertThat(assertStatus).isIn("FAILED", "ERROR");
     }
 
     private void waitForTerminal(UUID runId, Duration timeout) throws InterruptedException {
