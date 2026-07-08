@@ -36,12 +36,27 @@ class WorkerRunDaoTest extends PostgresWorkerTestBase {
     void requeueReturnsRunToQueuedWithFutureNextAttempt() throws InterruptedException {
         UUID projectId = insertProject();
         UUID runId = insertQueuedRun(projectId);
+        UUID checkId = insertCheck(projectId, "requeue-check");
 
         dao.claimNextRun("worker-a");
+        dao.writeCheckResult(runId, new CheckResultRow(
+                checkId,
+                "requeue-check",
+                "Requeue Check",
+                dev.backline.core.check.CheckResultStatus.ERROR,
+                500,
+                20L,
+                "ERR",
+                "boom",
+                "{}",
+                "[]"));
         dao.requeueForRetry(runId, 50);
 
         assertThat(jdbcTemplate.queryForObject("SELECT status FROM runs WHERE id = ?", String.class, runId))
                 .isEqualTo("QUEUED");
+        Integer resultsAfterRequeue =
+                jdbcTemplate.queryForObject("SELECT count(*) FROM check_results WHERE run_id = ?", Integer.class, runId);
+        assertThat(resultsAfterRequeue).isZero();
 
         Thread.sleep(75);
 
