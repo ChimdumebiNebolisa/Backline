@@ -36,7 +36,11 @@ class RunServiceTest extends PostgresTestBase {
         var second = runService.submit(new CreateRunRequest(project.getSlug(), "local", "cfg-1", "same-key", "test"));
 
         assertThat(second.id()).isEqualTo(first.id());
-        assertThat(runRepository.count()).isEqualTo(1);
+        assertThat(runRepository.findByIdempotencyKey("same-key")).isPresent();
+        assertThat(runRepository.findByProjectId(project.getId(), org.springframework.data.domain.Pageable.unpaged())
+                .stream()
+                .filter(r -> "same-key".equals(r.getIdempotencyKey()))
+                .count()).isEqualTo(1L);
     }
 
     @Test

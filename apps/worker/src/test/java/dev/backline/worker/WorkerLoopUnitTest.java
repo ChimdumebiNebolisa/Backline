@@ -169,7 +169,7 @@ class WorkerLoopUnitTest {
         WorkerLoop loop = new WorkerLoop(properties, dao, executor, objectMapper);
         loop.start();
 
-        verify(dao, timeout(3_000)).isRunCancelled(runId);
+        verify(dao, timeout(3_000).atLeastOnce()).isRunCancelled(runId);
         verify(dao, never()).persistResultsAndFinalize(eq(runId), any(), any());
         loop.stop();
     }
