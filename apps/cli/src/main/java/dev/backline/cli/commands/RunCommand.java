@@ -5,6 +5,9 @@ import dev.backline.cli.client.BacklineApiClient;
 import dev.backline.cli.policy.JunitPolicyReportWriter;
 import dev.backline.cli.policy.PolicyEvaluation;
 import dev.backline.cli.policy.RunPolicyEvaluator;
+import dev.backline.cli.policy.RunPolicyProfile;
+import dev.backline.cli.policy.RunPolicyProfileConverter;
+import picocli.CommandLine;
 import dev.backline.config.ConfigParseException;
 import dev.backline.config.ConfigParser;
 import dev.backline.config.model.BacklineConfig;
@@ -56,6 +59,11 @@ public class RunCommand implements Callable<Integer> {
     @Option(names = {"--enforce-policy"}, description = "Evaluate policy thresholds after run completion")
     private boolean enforcePolicy;
 
+    @Option(
+            names = {"--policy"},
+            description = "Override config policy with preset: strict, warn-only")
+    private String policyPreset;
+
     @Option(names = {"--junit-output"}, description = "Optional JUnit XML output path for policy enforcement")
     private Path junitOutput;
 
@@ -80,6 +88,14 @@ public class RunCommand implements Callable<Integer> {
             System.err.println("--baseline-run-id is required when --baseline=FIXED_RUN");
             return 2;
         }
+        if (policyPreset != null) {
+            try {
+                RunPolicyProfile.fromCliValue(policyPreset);
+            } catch (CommandLine.TypeConversionException e) {
+                System.err.println(e.getMessage());
+                return 2;
+            }
+        }
 
         ConfigParser parser = new ConfigParser();
         BacklineConfig config;
@@ -90,6 +106,7 @@ public class RunCommand implements Callable<Integer> {
             return 2;
         }
         String configHash = parser.canonicalConfigHash(config);
+        RunPolicy effectivePolicy = resolvePolicy(config.policy());
         BacklineApiClient client = new BacklineApiClient(parent.apiUrl());
         try {
             try {
@@ -124,12 +141,12 @@ public class RunCommand implements Callable<Integer> {
                     return 0;
                 }
                 if (enforcePolicy && st.isTerminal()) {
-                    PolicyEvaluation evaluation = evaluatePolicy(client, runId, config.policy());
+                    PolicyEvaluation evaluation = evaluatePolicy(client, runId, effectivePolicy);
                     return policyAwareExit(runId, st, evaluation);
                 }
                 return exitForTerminal(st);
             }
-            return waitForTerminal(client, runId, run.status(), enforcePolicy ? config.policy() : null);
+            return waitForTerminal(client, runId, run.status(), enforcePolicy ? effectivePolicy : null);
         } catch (ApiClientException e) {
             System.err.println("API error (" + e.httpStatus() + "): " + e.getMessage());
             return 1;
@@ -195,6 +212,13 @@ public class RunCommand implements Callable<Integer> {
                 + ", errored_checks=" + evaluation.erroredChecksCount()
                 + ", max_latency_regression_ms=" + evaluation.maxLatencyRegressionMs());
         return evaluation;
+    }
+
+    private RunPolicy resolvePolicy(RunPolicy configPolicy) {
+        if (policyPreset != null) {
+            return RunPolicyProfile.fromCliValue(policyPreset).toPolicy();
+        }
+        return configPolicy;
     }
 
     private static int exitForTerminal(RunStatus status) {

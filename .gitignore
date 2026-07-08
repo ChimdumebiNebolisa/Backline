@@ -25,7 +25,9 @@ target/
 .env
 !.env.example
 
-# Local data volumes
+# jqwik
+.jqwik-database
+
 /data/
 /pgdata/
 

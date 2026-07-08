@@ -19,32 +19,593 @@ DROPPED
 ## Current status
 
 ```txt
-ACTIVE: Q5 E2E demo in CI
-BLOCKED: none
-DONE: Tasks 1-6, integration fixes A-E, Testcontainers verification, worker hardening, perf harness, PR #9 feature merge
+ACTIVE: none
+BLOCKED: Q12 (PRD update)
+DONE: Tasks 1-6, Q1-Q11, Q13 (embedded in e2e CI job); Q14 pending CI verification
 DROPPED: none
 ```
 
-## Quality hardening phase (9/10 roadmap)
+## 9/10 sequenced execution plan
 
-Only one step may be active at a time. Each step must leave a verification artifact.
+Authoritative coordinator view for closing the remaining quality gaps. Does **not** expand PRD scope. Only one step (Q5–Q13, or Q14 sign-off) may be **ACTIVE** at a time.
 
-| Step | Status | Exit criteria |
-|------|--------|---------------|
-| Q1 Contracts + runbook + guardrail script | DONE | `docs/contracts.md`, `docs/runbook.md`, `./scripts/check-guardrails.sh` |
-| Q2 API/service test expansion | DONE | `./gradlew :apps:api:test` green; API line coverage 25.9% (floor 28% next target) |
-| Q3 Architecture enforcement | DONE | ArchUnit tests pass in `:apps:api:test` |
-| Q4 CI coverage gates | DONE | `./gradlew check` enforces JaCoCo minimums; GitHub Actions runs `check` |
-| Q5 E2E demo in CI | BACKLOG | `docs/demo-script.md` runs unattended in CI with Postgres |
-| Q6 API coverage to 65% | BACKLOG | JaCoCo API line >= 65% |
-| Q7 Policy profiles + doctor hardening | BACKLOG | PRD update + CLI smoke tests |
+### Baseline (post PR #10)
 
-Verification commands:
+| Dimension | Current | Target (9.0) |
+|-----------|---------|--------------|
+| Overall audit score | ~8.3 | >= 9.0 (see `docs/audit-playbook.md` §8 rubric) |
+| API line / branch coverage | 25.9% / 23.7% | >= 65% / >= 40% |
+| Worker line coverage | 42.6% | >= 55% |
+| CLI line coverage | 50.9% | >= 60% |
+| libs/core line coverage | 29.0% | >= 50% |
+| CI full-stack proof | none | demo + extended smoke green in Actions |
+| CI skipped tests | 0 in CI (verify) | remain 0; local skips documented |
+| Property / mutation tests | none | executor + config + policy + diff |
+| Operability | runbook exists | doctor hardened + policy profiles |
+| Enforced gates | `check` + guardrails | + E2E + ratcheting coverage + contract drift |
+| Contract drift checks | manual only | `./scripts/check-contract-drift.sh` |
+
+### Gaps → steps
+
+| # | Gap | Evidence | Step |
+|---|-----|----------|------|
+| G1 | No unattended full-stack proof | CI = `./gradlew check` only | Q5 |
+| G2 | Silent skips locally | 54 skipped without Docker | Q8 |
+| G3 | API under-tested | ~26% line / ~24% branch vs targets | Q6 |
+| G4 | Worker/core under-tested | worker 42.6%; core 29.0% | Q6f, Q10 |
+| G5 | Logic not stress-tested | no jqwik / PIT | Q9 |
+| G6 | Security partially manual | guardrail script only | Q11 |
+| G7 | Operability partial | basic doctor (3 checks only) | Q7 |
+| G8 | Coverage can regress | low module floors | Q10 |
+| G9 | Perf blind spot | harness not in CI | Q13 |
+| G10 | Diff UX (optional) | flag-only baselines | Q12 |
+| G11 | Contract / doc drift | no automated check | Q10, Q14 |
+
+### Scope boundaries (phase-wide)
+
+**In scope**
+
+- Headless E2E demo in CI (Postgres → API → worker → sample API → CLI).
+- Extended E2E smoke: policy enforcement, JSON report output (Q5b).
+- Test pyramid to raise API coverage; JaCoCo floor ratcheting for all modules.
+- Targeted worker + `libs/core` coverage raises (Q6f).
+- jqwik property tests on existing executor, config, policy, diff logic.
+- Doctor hardening and policy profile presets on existing CLI commands.
+- Guardrail script expansion and redaction/preview automated tests.
+- Contract drift script (`check-contract-drift.sh`) for README / api-examples alignment.
+- CI quality summary; perf **smoke** only (existing harness, Linux CI path).
+- **Mandatory** consolidation of duplicate `PostgresTestBase` classes (Q8).
+
+**Out of scope** (do not implement; 9/10 achievable without these)
+
+- Authentication / authorization.
+- Multi-tenant isolation.
+- Cloud sync / SaaS hosting.
+- HTML report generation.
+- OpenAPI-driven contract test generation.
+- Full load testing as a product feature.
+- New API endpoints or CLI commands beyond what each step lists.
+- OWASP dependency check as a merge blocker (report-only optional).
+
+**PRD-gated** (BLOCKED until `PRD.md` updated)
+
+- Q12 persisted baseline preference (`backline baseline set/show`).
+
+**Frozen constraints** (every step)
+
+- CLI must not write to PostgreSQL.
+- Worker must not expose HTTP.
+- Reporting must not query the database directly.
+- No shell execution from config.
+- Response previews and sensitive-header redaction stay bounded per `GUARDRAILS.md`.
+
+### Execution sequence (canonical order)
+
+```txt
+Q5  E2E demo in CI (Q5a demo path + Q5b extended smoke)
+ └─> Q8  Zero skipped tests in CI (+ PostgresTestBase consolidation)
+      └─> Q6  API coverage (Q6a → Q6e) + worker/core (Q6f)
+           ├─> Q9  Property + mutation tests
+           └─> Q11  Security / redaction tests   (either order; one ACTIVE)
+                └─> Q7  Policy profiles + doctor hardening
+                     └─> Q10  Coverage ratchet + dashboard + contract drift
+                          └─> Q13  Performance smoke in CI (Linux path)
+                               └─> Q12  Baseline UX (optional; PRD-gated)
+                                    └─> Q14  Re-audit sign-off (rubric §8)
+```
+
+**Dependency rules (authoritative):**
+
+| Step | Depends on |
+|------|------------|
+| Q5 | Q4 |
+| Q8 | Q5 |
+| Q6 | Q5, Q8 |
+| Q9 | Q6 |
+| Q11 | Q6 (not Q9) |
+| Q7 | Q6, Q11 |
+| Q10 | Q6, Q9, Q7 |
+| Q13 | Q5, Q10 |
+| Q12 | PRD update |
+| Q14 | Q5–Q11, Q13; Q12 DONE or DROPPED |
+
+**Flexible ordering:** After Q6 completes, Q9 and Q11 may run in **either order** (only one ACTIVE). Q10 requires Q7, Q6, and Q9 all DONE. Do not start Q6 until Q5 and Q8 are both DONE.
+
+### Master step tracker
+
+| Order | Step | Status | Depends on | Closes gap | Verification artifact |
+|-------|------|--------|------------|------------|------------------------|
+| — | Q1 Contracts + runbook + guardrails | DONE | — | — | `docs/contracts.md`, `docs/runbook.md`, `check-guardrails.sh` |
+| — | Q2 API test expansion (initial) | DONE | — | — | API line 25.9%; `:apps:api:test` green |
+| — | Q3 ArchUnit enforcement | DONE | — | — | `ArchitectureTest` passes |
+| — | Q4 CI coverage gates | DONE | — | — | `./gradlew check` + CI green |
+| 1 | **Q5** E2E demo in CI (Q5a + Q5b) | BACKLOG | Q4 | G1 | `./scripts/ci-e2e-demo.sh` + CI job green |
+| 2 | **Q8** Zero skipped tests in CI | BACKLOG | Q5 | G2 | `CI=true` skipped=0; single PostgresTestBase |
+| 3 | **Q6** API + worker/core coverage | BACKLOG | Q5, Q8 | G3, G4 | API line >= 65%, branch >= 40%; worker >= 55%; core >= 50% |
+| 4a | **Q9** Property + mutation tests | BACKLOG | Q6 | G5 | jqwik green; PIT report-only OK |
+| 4b | **Q11** Security / redaction tests | BACKLOG | Q6 | G6 | guardrails + executor tests green |
+| 5 | **Q7** Policy profiles + doctor | BACKLOG | Q6, Q11 | G7 | CLI doctor/policy smoke tests |
+| 6 | **Q10** Coverage ratchet + dashboard | BACKLOG | Q6, Q9, Q7 | G8, G11 | module floors; `check-contract-drift.sh` |
+| 7 | **Q13** Perf smoke in CI | BACKLOG | Q5, Q10 | G9 | bash smoke job green (see Q13 platform) |
+| 8 | **Q12** Baseline UX | BACKLOG | PRD | G10 | baseline set/show + diff default |
+| 9 | **Q14** Re-audit sign-off | BACKLOG | Q5–Q11, Q13 | all | rubric §8: every dimension >= 9.0 |
+
+Q12 may be **DROPPED** with reason if PRD is not updated; Q14 still requires Q5–Q11 and Q13 DONE.
+
+### Per-step contract (summary)
+
+Each step below expands: objective, in-scope artifacts, out-of-scope, dependencies, verification commands, exit criteria.
+
+**Global verification** (run on every PR until Q14):
 
 ```bash
 ./gradlew check
 ./scripts/check-guardrails.sh
 ./scripts/audit-strength.sh
+```
+
+After Q5 lands, also run `./scripts/ci-e2e-demo.sh`. After Q8 lands, `CI=true ./gradlew clean check` must report `skipped=0`. After Q10 lands, also run `./scripts/check-contract-drift.sh`.
+
+### Recommended PR slices
+
+| PR | Step(s) | Example branch | Merge gate |
+|----|---------|----------------|------------|
+| A | Q5a + Q5b | `cursor/e2e-ci-demo-ca88` | E2E demo + extended smoke |
+| B | Q8 | `cursor/ci-zero-skips-ca88` | `CI=true` skipped=0; PostgresTestBase merged |
+| C | Q6a–c | `cursor/api-coverage-services-ca88` | API line >= 40%; branch >= 30% |
+| D | Q6d–f | `cursor/api-coverage-65-ca88` | API line >= 65%, branch >= 40%; worker >= 55%; core >= 50% |
+| E | Q9 | `cursor/property-tests-ca88` | jqwik green |
+| F | Q11 | `cursor/security-redaction-tests-ca88` | guardrails + executor tests |
+| G | Q7 | `cursor/policy-doctor-ca88` | doctor/policy smoke tests |
+| H | Q10 | `cursor/coverage-ratchet-ca88` | module floors + contract drift script |
+| I | Q13 | `cursor/perf-smoke-ci-ca88` | bash smoke job (warn-only first merge OK) |
+| J | Q12 | `cursor/baseline-ux-ca88` | blocked until PRD update |
+
+Q9 and Q11 (PR E/F) may swap order; do not merge both in parallel on one branch.
+
+### Risks
+
+| Risk | Mitigation |
+|------|------------|
+| E2E flake | Health waits + timeouts; one CI retry; upload service logs |
+| Q6 scope creep | Coverage gap table only; no new endpoints |
+| Q13 PowerShell on Linux CI | Use `scripts/ci-perf-smoke.sh` bash port (see Q13); not raw `.ps1` on ubuntu |
+| PIT slows CI | Report-only until baseline; optional nightly |
+| Q12 without PRD | DROPPED; does not block Q14 |
+| Subjective Q14 sign-off | Use rubric §8 in `docs/audit-playbook.md` |
+
+### Immediate next action
+
+**Activate Q5.** See step detail below. Do not activate Q6 until Q5 and Q8 are DONE.
+
+---
+
+### Q5 — E2E demo in CI
+
+**Objective:** Prove Postgres → API → worker → sample API → CLI path unattended in GitHub Actions, including differentiated regression-ledger features.
+
+**Depends on:** Q4 (DONE).
+
+**Sub-steps (both required before Q5 is DONE):**
+
+**Q5a — Demo path** (from `docs/demo-script.md`):
+- `doctor`, `sample init`, `run`, `history`, `diff`, `report`
+- Run reaches terminal status; run ID printed; Markdown report file exists
+
+**Q5b — Extended smoke** (regression-ledger value prop):
+- `backline run --enforce-policy` (expect non-zero or documented policy outcome on sample failing check)
+- `backline report <runId> --json-output <path>` — assert JSON file exists and contains run summary
+- `backline diff <runId> --baseline LAST_PASSED` (or clear message when no baseline)
+
+**In scope:**
+- `scripts/ci-e2e-demo.sh` (headless runner; Q5a + Q5b phases)
+- `.github/workflows/backline-ci.yml` — `e2e-demo` job
+- Health wait loops for API (8080), sample API (8081), Postgres (5432)
+- CI artifacts: report.md, report.json, service logs on failure
+- CI job requires Docker (Testcontainers in `verify` + E2E stack)
+
+**Out of scope:**
+- Docker Compose as required CI path (prefer script-managed Postgres + bootRun)
+- New CLI commands or API endpoints
+- Multi-OS E2E matrix
+
+**Must not:** Bypass CLI→API boundary; CLI must not write to Postgres directly.
+
+**Exit criteria:**
+1. `./scripts/ci-e2e-demo.sh` exits 0 locally on Ubuntu with Java 21 and Docker.
+2. CI `e2e-demo` job green on PR to `main`.
+3. Q5a: run reaches terminal status; Markdown report exists.
+4. Q5b: JSON report artifact exists; `--enforce-policy` behavior matches runbook.
+
+**Verification:**
+```bash
+./scripts/ci-e2e-demo.sh
+# CI: e2e-demo job green on PR
+```
+
+---
+
+### Q6 — API + worker/core coverage
+
+**Objective:** Raise coverage on under-tested modules with a test pyramid, not controller-only sprawl.
+
+**Depends on:** Q5, Q8 (both DONE).
+
+**Coverage targets (9/10 bar):**
+
+| Module | Line target | Branch target | Primary sub-step |
+|--------|-------------|---------------|------------------|
+| `apps/api` | >= 65% | >= 40% | Q6a–Q6e |
+| `apps/worker` | >= 55% | >= 35% | Q6f |
+| `libs/core` | >= 50% | >= 25% | Q6f |
+| `apps/cli` | >= 60% (floor ratchet in Q10) | — | Q7 smoke tests |
+
+**In scope (API pyramid):**
+
+| Layer | Target classes | Test type |
+|-------|----------------|-----------|
+| Services | `RunService`, `DiffService`, `CheckSyncService`, `CheckHistoryService`, `ProjectSummaryService`, `ProjectService` | `@SpringBootTest` + PostgresTestBase |
+| Web | `ApiExceptionHandler`, all controllers | `@WebMvcTest` or TestRestTemplate integration |
+| Persistence | custom repository queries, `RunSpecifications`, `OffsetBasedPageRequest` | repository integration tests |
+| Mappers | `*Mapper`, `AssertionJsonMapper` | unit tests |
+| Config | `JacksonConfig`, `OpenApiConfig` | smoke/unit |
+
+**Sub-steps (strict order within Q6):**
+1. **Q6a** — Service tests: cancel, events, error branches.
+2. **Q6b** — Controller contract matrix: every endpoint × success / validation / not-found. **Exit:** each controller has at least one validation-failure test.
+3. **Q6c** — Repository query tests (`findPreviousPassedRun`, history projection, filters).
+4. **Q6d** — Mapper/unit tests for JSON serialization edges (assertion operators, `path` round-trip).
+5. **Q6e** — Raise API JaCoCo floor: 0.28 → 0.40 → 0.55 → 0.65 line; add branch floor 0.40 at final merge.
+6. **Q6f** — Worker tests: stale recovery, cancel during run, ERROR vs FAILED distinction; `libs/core` DTO/enum serialization tests.
+
+**Out of scope:**
+- New API endpoints or DTO shape changes
+- Refactoring production services for testability beyond minimal seams
+
+**Exit criteria:**
+1. `./gradlew :apps:api:jacocoTestCoverageVerification` passes at line >= 0.65 and branch >= 0.40.
+2. `./scripts/audit-strength.sh` reports worker line >= 55%, core line >= 50%.
+3. `./scripts/ci-e2e-demo.sh` still green (no demo regression).
+
+**Verification:**
+```bash
+./gradlew :apps:api:test :apps:worker:test jacocoTestCoverageVerification
+./scripts/audit-strength.sh
+./scripts/ci-e2e-demo.sh
+```
+
+---
+
+### Q7 — Policy profiles + doctor hardening
+
+**Objective:** Make CI gating and local troubleshooting first-class without expanding into a general CI platform.
+
+**Depends on:** Q6, Q11 (both DONE).
+
+**Doctor delta (today vs hardened):**
+
+| Check | Today (`DoctorCommand`) | Q7 adds |
+|-------|-------------------------|---------|
+| API health | `GET /api/health` via `--api-url` | unchanged |
+| Config parse | `backline.yml` if present | fail on invalid YAML with actionable line hint |
+| Env | `BACKLINE_API_URL` blank check | unchanged |
+| Postgres TCP | — | optional: localhost:5432 reachable (warn if E2E expected) |
+| Sample API | — | optional: `GET :8081/health` when `--check-sample-api` |
+| Worker process | — | optional: document manual check in runbook (no HTTP on worker) |
+| Exit code | 0/1 aggregate | unchanged; each FAIL line must name remediation |
+
+**Policy delta:**
+
+| Capability | Today | Q7 adds |
+|------------|-------|---------|
+| `--enforce-policy` | threshold evaluation from config | unchanged |
+| Named presets | inline `RunPolicy` in YAML only | `--policy strict\|warn-only` mapping to documented thresholds |
+| PRD | thresholds exist | small PRD note for named presets |
+
+**In scope:**
+- Named policy presets (`strict`, `warn-only`) via CLI flag or YAML alias
+- Enhanced doctor checks per delta table (required + optional flags)
+- CLI smoke tests for each doctor **failure** mode (API down, bad config, blank env)
+- Updates to `docs/ci-integration.md` and `docs/runbook.md`
+- Small PRD addition for named policy presets
+
+**Out of scope:**
+- General CI platform / pipeline orchestration
+- Worker health HTTP probe
+- New persistence tables
+
+**Exit criteria:**
+1. `./gradlew :apps:cli:test` green including new doctor failure smoke tests.
+2. `backline doctor` exits 1 with actionable message when API unreachable.
+3. `backline run --policy strict --enforce-policy` exit code documented in runbook.
+
+**Verification:**
+```bash
+./gradlew :apps:cli:test
+backline doctor  # exit 1 when API down; output names fix
+backline run --policy strict --enforce-policy
+```
+
+---
+
+### Q8 — Zero skipped tests in CI
+
+**Objective:** CI must never silently skip integration tests; local dev may skip when Docker absent.
+
+**Depends on:** Q5 (DONE).
+
+**Pre-check:** Confirm current CI skip count before implementing. `PostgresTestBase` / `PostgresWorkerTestBase` already **fail** (not skip) when `CI=true` and Docker is missing. If `CI=true ./gradlew check` already reports `skipped=0`, Q8 is primarily consolidation + audit enforcement.
+
+**In scope:**
+- Audit all `Assumptions.assumeTrue` / `@EnabledIf` in test bases
+- **Mandatory:** merge duplicate `PostgresTestBase` (`persistence/` and `support/`) into single canonical base under `apps/api/src/test/java/dev/backline/api/support/`
+- Update all API integration tests to extend the canonical base; delete duplicate
+- CI workflow sets `CI=true` explicitly (verify)
+- `scripts/audit-strength.sh` exits non-zero if `skipped > 0` when `CI=true`
+- Document local skip behavior in `docs/runbook.md`
+
+**Out of scope:**
+- Requiring Docker for local `./gradlew test` (skips OK locally without `CI=true`)
+- Replacing Testcontainers with embedded Postgres
+
+**Exit criteria:**
+1. Single `PostgresTestBase` class; no duplicate under `persistence/`.
+2. `CI=true ./gradlew clean check` completes with `skipped=0` in JUnit summary.
+3. `CI=true ./scripts/audit-strength.sh` fails if any skip occurs.
+4. Local run without Docker still skips gracefully.
+
+**Verification:**
+```bash
+CI=true ./gradlew clean check
+CI=true ./scripts/audit-strength.sh
+# audit output: skipped=0
+```
+
+---
+
+### Q9 — Property + mutation tests
+
+**Objective:** Prove critical logic is not just covered but meaningfully tested.
+
+**Depends on:** Q6 (DONE). May run before or after Q11 (only one ACTIVE).
+
+**In scope:**
+- jqwik property tests in `libs/executor` (assertion evaluation against generated JSON)
+- jqwik property tests in `libs/config` (malformed config rejection)
+- Boundary tests for `RunPolicyEvaluator` (threshold edges)
+- Property or generative tests for `DiffService` baseline selection edge cases
+- Optional PIT mutation task for `libs/executor` and `DiffService` (Gradle plugin, report-only)
+- Document acceptable mutation survivors in test class comments
+
+**Out of scope:**
+- PIT as merge blocker until baseline established
+- Property tests on controllers or persistence layers
+- Fuzzing live HTTP endpoints
+
+**Must not:** Add mutation testing as a merge blocker until baseline established.
+
+**Exit criteria:**
+1. `./gradlew :libs:executor:test :libs:config:test :apps:cli:test :apps:api:test` green.
+2. At least one jqwik test class per module: executor, config, policy evaluator, diff baselines.
+3. Optional `./gradlew pitest` produces report without blocking merge.
+
+**Verification:**
+```bash
+./gradlew :libs:executor:test :libs:config:test :apps:cli:test :apps:api:test
+# optional: ./gradlew pitest (threshold configured)
+```
+
+---
+
+### Q10 — Coverage ratchet + quality dashboard
+
+**Objective:** Prevent coverage regression; make quality visible; catch doc/API drift.
+
+**Depends on:** Q6, Q9, Q7 (all DONE).
+
+**Module floor targets (ratchet in `build.gradle` after Q6/Q7):**
+
+| Module | Line floor | Branch floor (where applicable) |
+|--------|------------|----------------------------------|
+| `apps:api` | 0.65 | 0.40 |
+| `apps:worker` | 0.55 | 0.35 |
+| `apps:cli` | 0.60 | — |
+| `libs:core` | 0.50 | — |
+| `apps:sample-api` | 0.85 | — |
+| `libs:config` | 0.70 | — |
+| `libs:executor` | 0.74 | — |
+| `libs:reporting` | 0.90 | — |
+
+**In scope:**
+- Raise `coverageMinimums` to table above (line; add branch rules for api/worker if Gradle config extended)
+- CI step publishes per-module coverage summary as job summary or artifact
+- `scripts/check-contract-drift.sh`:
+  - README command examples match Picocli `--help` for core commands
+  - `docs/api-examples.md` paths match implemented controllers (smoke grep or curl list)
+- README quality snapshot section references rubric §8
+- Optional Shields.io badge if repo is public
+
+**Out of scope:**
+- SonarQube / external quality platform
+- Per-class coverage enforcement
+- OpenAPI-driven contract generation
+
+**Exit criteria:**
+1. `./gradlew check` fails if any module drops below its ratcheted floor.
+2. CI publishes per-module line (and branch for api) coverage on every PR.
+3. `./scripts/check-contract-drift.sh` passes.
+4. `docs/audit-playbook.md` §8 rubric referenced from README or runbook.
+
+**Verification:**
+```bash
+./gradlew check
+./scripts/check-contract-drift.sh
+./scripts/audit-strength.sh
+```
+
+---
+
+### Q11 — Security/redaction test expansion
+
+**Objective:** Automate guardrails that are today partially manual.
+
+**Depends on:** Q6 (DONE). May run before or after Q9 (only one ACTIVE).
+
+**In scope:**
+- Unit tests: `Authorization`, `Cookie`, `Set-Cookie` redacted in executor logs/previews
+- URL validation tests for documented dangerous schemes
+- Response preview bound tests (extend existing)
+- Expand `scripts/check-guardrails.sh` (some checks may already exist — extend, do not duplicate):
+  - preview constant matches docs
+  - grep for `Runtime.exec` / `ProcessBuilder` in config paths
+  - verify no `@SpringBootApplication` in CLI main
+- ArchUnit expansion (Q3b): controllers do not depend on repositories directly; worker does not depend on API web layer
+- Optional OWASP dependency check Gradle task (report-only on PR)
+
+**Out of scope:**
+- Penetration testing / DAST
+- Secret scanning as merge blocker
+- Auth implementation
+
+**Exit criteria:**
+1. `./scripts/check-guardrails.sh` passes with expanded checks.
+2. `./gradlew :apps:api:test :libs:executor:test` green including redaction/preview + new ArchUnit rules.
+3. Guardrail additions documented in `GUARDRAILS.md` or `docs/runbook.md`.
+
+**Verification:**
+```bash
+./scripts/check-guardrails.sh
+./gradlew :libs:executor:test :apps:api:test
+```
+
+---
+
+### Q12 — Baseline UX commands (PRD-gated)
+
+**Objective:** Improve diff ergonomics for daily use.
+
+**Depends on:** `PRD.md` update (BLOCKED until approved).
+
+**In scope (after PRD update):**
+- API: store baseline run preference per project/environment
+- CLI: `backline baseline set <runId>`, `backline baseline show`
+- Diff defaults to stored baseline when no flag provided
+- Tests: API + CLI + diff integration
+
+**Out of scope:**
+- Multiple named baselines per project
+- Baseline sharing across machines / teams
+- UI beyond CLI
+
+**Exit criteria:**
+1. PRD lists baseline persistence as in-scope.
+2. `./gradlew :apps:api:test :apps:cli:test` green.
+3. `backline baseline set <id> && backline diff <newRunId>` uses stored baseline.
+
+**Verification:**
+```bash
+./gradlew :apps:api:test :apps:cli:test
+backline baseline set <id> && backline diff <newRunId>  # uses stored baseline
+```
+
+If PRD is not updated by Q14, mark **DROPPED** with reason; does not block sign-off.
+
+---
+
+### Q13 — Performance smoke in CI
+
+**Objective:** Catch gross regressions in worker throughput / queue latency using existing harness.
+
+**Depends on:** Q5, Q10 (both DONE).
+
+**Platform strategy (BLOCKED until implemented — choose before ACTIVE):**
+
+The existing harness is PowerShell-centric (`perf/run-local.ps1`, `perf/scripts/queue-load.ps1`). **Do not** invoke raw `.ps1` on `ubuntu-latest` without `pwsh`.
+
+**Canonical CI path:** bash port at `scripts/ci-perf-smoke.sh` that replicates `queue-load.ps1` smoke assertions:
+- submit batch of runs via CLI
+- wait for terminal statuses (bounded timeout)
+- assert no stuck `QUEUED`/`RUNNING`
+- assert `history` and `report` succeed post-load
+
+**Alternative (document only):** nightly job on `windows-latest` with `pwsh` + Docker Compose perf stack — not required for 9/10 if bash port exists.
+
+**In scope:**
+- `scripts/ci-perf-smoke.sh` (bash, Linux CI)
+- CI job after `verify` on `main` push (warn-only first merge; fail after baseline)
+- Document thresholds in `docs/runbook.md`
+- Reuse Q5 E2E stack or Docker Compose perf profile — coordinator picks one; document in runbook
+
+**Out of scope:**
+- Full load / multi-worker profiles in PR CI
+- Performance optimization work
+- k6 in PR CI (optional nightly only)
+
+**Exit criteria:**
+1. `scripts/ci-perf-smoke.sh` exits 0 locally with Docker + full stack running.
+2. CI perf-smoke job green on `main` (warn-only acceptable on first merge).
+3. `./scripts/ci-e2e-demo.sh` and `./gradlew check` remain green.
+
+**Verification:**
+```bash
+./scripts/ci-perf-smoke.sh
+# CI: perf-smoke job on ubuntu-latest
+```
+
+---
+
+### Q14 — Re-audit sign-off
+
+**Objective:** Confirm 9/10 quality bar with repeatable, scored evidence.
+
+**Depends on:** Q5–Q11, Q13 DONE; Q12 DONE or DROPPED.
+
+**In scope:**
+- Score all dimensions using **`docs/audit-playbook.md` §8 rubric**
+- Record dated score table in audit-playbook or README
+- Update `PLAN.md` step statuses to DONE
+- Confirm all verification commands pass on `main`
+
+**Exit criteria:**
+
+1. `./gradlew check` passes locally and in CI with `skipped=0`.
+2. `./scripts/ci-e2e-demo.sh` passes (Q5a + Q5b).
+3. Coverage targets met per Q6/Q10 module floor table.
+4. Property tests cover executor assertion evaluation and config validation.
+5. Doctor hardened and policy profiles smoke-tested (Q7 delta complete).
+6. Guardrail script + redaction tests pass (Q11).
+7. `./scripts/check-contract-drift.sh` passes.
+8. Q5–Q11 and Q13 marked DONE; Q12 DONE or DROPPED with reason.
+9. **Every rubric dimension >= 9.0; weighted overall >= 9.0.**
+
+**Verification:**
+```bash
+./gradlew clean check
+CI=true ./scripts/audit-strength.sh
+./scripts/ci-e2e-demo.sh
+./scripts/check-guardrails.sh
+./scripts/check-contract-drift.sh
+# Score dimensions per docs/audit-playbook.md §8
 ```
 
 ## Parallel Execution Map

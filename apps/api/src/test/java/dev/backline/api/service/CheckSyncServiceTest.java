@@ -75,6 +75,38 @@ class CheckSyncServiceTest {
         assertThat(synced).hasSize(2);
     }
 
+    @Test
+    void syncRejectsBlankProjectSlug() {
+        CheckSyncService service = serviceWithWritableRepository();
+        assertThatThrownBy(() -> service.sync(new CheckSyncRequest(" ", "Name", List.of())))
+                .isInstanceOf(ValidationFailedException.class);
+    }
+
+    @Test
+    void syncRejectsEmptyChecksList() {
+        CheckSyncService service = serviceWithWritableRepository();
+        assertThatThrownBy(() -> service.sync(new CheckSyncRequest("sample", "Sample", List.of())))
+                .isInstanceOf(ValidationFailedException.class);
+    }
+
+    @Test
+    void syncRejectsDuplicateCheckKeys() {
+        CheckSyncService service = serviceWithWritableRepository();
+        var check = new CheckDefinitionDto(
+                "dup", "Dup", HttpMethod.GET, "http://localhost:8081/health", 200, null, null);
+        assertThatThrownBy(() -> service.sync(new CheckSyncRequest("sample", "Sample", List.of(check, check))))
+                .isInstanceOf(ValidationFailedException.class);
+    }
+
+    @Test
+    void syncRejectsNonHttpUrl() {
+        CheckSyncService service = serviceWithWritableRepository();
+        var check = new CheckDefinitionDto(
+                "bad", "Bad", HttpMethod.GET, "ftp://example.com", 200, null, null);
+        assertThatThrownBy(() -> service.sync(new CheckSyncRequest("sample", "Sample", List.of(check))))
+                .isInstanceOf(ValidationFailedException.class);
+    }
+
     private static CheckSyncService serviceWithWritableRepository() {
         CheckRepository checkRepository = mock(CheckRepository.class);
         ProjectService projectService = mock(ProjectService.class);

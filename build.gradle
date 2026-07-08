@@ -18,12 +18,13 @@ allprojects {
         springdocOpenapiVersion = '2.6.0'
         junitJupiterVersion = '5.10.2'
         assertjVersion = '3.26.3'
+        jqwikVersion = '1.8.5'
         jacksonVersion = '2.17.2'
         coverageMinimums = [
-                'apps:api'       : 0.28,
-                'apps:cli'       : 0.48,
+                'apps:api'       : 0.63,
+                'apps:cli'       : 0.55,
                 'apps:sample-api': 0.85,
-                'apps:worker'    : 0.40,
+                'apps:worker'    : 0.42,
                 'libs:config'    : 0.70,
                 'libs:core'      : 0.25,
                 'libs:executor'  : 0.74,
@@ -94,9 +95,21 @@ tasks.register('checkGuardrails') {
     }
 }
 
+tasks.register('checkContractDrift') {
+    group = 'verification'
+    description = 'Checks README and api-examples alignment with implemented commands'
+    doLast {
+        exec {
+            workingDir rootProject.projectDir
+            commandLine 'bash', 'scripts/check-contract-drift.sh'
+        }
+    }
+}
+
 tasks.register('check') {
     group = 'verification'
     description = 'Runs tests, coverage gates, and guardrail checks for all Java subprojects'
     dependsOn subprojects.findAll { it.plugins.hasPlugin('java') }.collect { it.tasks.named('check') }
     dependsOn tasks.named('checkGuardrails')
+    dependsOn tasks.named('checkContractDrift')
 }
