@@ -60,6 +60,25 @@ backline diff <runId>
 backline report <runId>
 ```
 
+### Optional CI policy enforcement
+
+Backline can evaluate run outcomes against policy thresholds in `backline.yml`:
+
+```yaml
+policy:
+  max_newly_failing: 0
+  max_errored_checks: 0
+  max_latency_regression_ms: 200
+```
+
+Then run:
+
+```bash
+backline run --enforce-policy --junit-output ./build/backline-policy.xml
+```
+
+When policy checks fail, the command exits with code `5` and prints violations. The optional JUnit file lets CI systems annotate the failure.
+
 **PowerShell** examples:
 
 ```powershell

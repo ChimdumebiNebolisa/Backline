@@ -2,6 +2,7 @@ package dev.backline.config;
 
 import dev.backline.config.model.BacklineConfig;
 import dev.backline.config.model.CheckDefinition;
+import dev.backline.config.model.RunPolicy;
 import dev.backline.core.api.dto.AssertionDto;
 
 import java.net.URI;
@@ -75,6 +76,23 @@ public final class ConfigValidator {
                 }
             }
             validateAssertions(prefix, c.assertions());
+        }
+        validatePolicy(config.policy());
+    }
+
+    private static void validatePolicy(RunPolicy policy) {
+        if (policy == null) {
+            return;
+        }
+        if (policy.maxNewlyFailing() != null && policy.maxNewlyFailing() < 0) {
+            throw new ConfigParseException("policy.max_newly_failing must be >= 0", "policy.max_newly_failing");
+        }
+        if (policy.maxErroredChecks() != null && policy.maxErroredChecks() < 0) {
+            throw new ConfigParseException("policy.max_errored_checks must be >= 0", "policy.max_errored_checks");
+        }
+        if (policy.maxLatencyRegressionMs() != null && policy.maxLatencyRegressionMs() < 0) {
+            throw new ConfigParseException(
+                    "policy.max_latency_regression_ms must be >= 0", "policy.max_latency_regression_ms");
         }
     }
 
