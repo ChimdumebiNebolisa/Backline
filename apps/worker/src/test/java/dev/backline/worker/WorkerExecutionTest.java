@@ -9,7 +9,9 @@ import dev.backline.worker.loop.WorkerLoop;
 import dev.backline.worker.persistence.WorkerRunDao;
 import dev.backline.worker.support.PostgresWorkerTestBase;
 import okhttp3.mockwebserver.MockResponse;
+import okhttp3.mockwebserver.Dispatcher;
 import okhttp3.mockwebserver.MockWebServer;
+import okhttp3.mockwebserver.RecordedRequest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -62,9 +64,22 @@ class WorkerExecutionTest extends PostgresWorkerTestBase {
 
     @Test
     void processesQueuedRunEndToEnd() throws Exception {
-        server.enqueue(new MockResponse().setBody("{\"id\":1}").addHeader("Content-Type", "application/json"));
-        server.enqueue(new MockResponse().setResponseCode(500));
-        server.enqueue(new MockResponse().setBody("{\"id\":1}").addHeader("Content-Type", "application/json"));
+        server.setDispatcher(new Dispatcher() {
+            @Override
+            public MockResponse dispatch(RecordedRequest request) {
+                String path = request.getPath();
+                if ("/pass".equals(path)) {
+                    return new MockResponse().setBody("{\"id\":1}").addHeader("Content-Type", "application/json");
+                }
+                if ("/fail".equals(path)) {
+                    return new MockResponse().setResponseCode(500);
+                }
+                if ("/assert".equals(path)) {
+                    return new MockResponse().setBody("{\"id\":1}").addHeader("Content-Type", "application/json");
+                }
+                return new MockResponse().setResponseCode(404);
+            }
+        });
 
         UUID projectId = insertProject();
         UUID passCheck = insertCheck(
