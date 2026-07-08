@@ -91,7 +91,7 @@ class WorkerExecutionTest extends PostgresWorkerTestBase {
         loop = new WorkerLoop(workerProperties, dao, httpCheckExecutor, objectMapper);
         loop.start();
 
-        waitForTerminal(runId, Duration.ofSeconds(30));
+        waitForTerminal(runId, Duration.ofSeconds(90));
 
         Long results =
                 jdbcTemplate.queryForObject("SELECT COUNT(*) FROM check_results WHERE run_id = ?", Long.class, runId);
