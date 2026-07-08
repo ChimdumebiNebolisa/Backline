@@ -17,6 +17,19 @@
 
 Worker has no HTTP port. Confirm it stays alive and logs `Worker started`.
 
+### `backline doctor`
+
+Run before CI or local demos to verify prerequisites:
+
+```bash
+backline doctor
+backline doctor --check-sample-api
+```
+
+Each `FAIL` line includes a `fix:` remediation hint. Exit code `1` when any check fails.
+
+For E2E flows that hit the sample API, use `--check-sample-api` to probe `http://localhost:8081/health`.
+
 ## Common failures
 
 ### API fails on startup: `Connection to localhost:5432 refused`
@@ -33,7 +46,11 @@ Pass keep-alive:
 
 ### `backline doctor` reports API unreachable
 
-Confirm API is running on port 8080 and `BACKLINE_API_URL` (if set) is correct.
+Confirm API is running on port 8080 and `BACKLINE_API_URL` (if set) is correct. Run `backline doctor`; output includes `fix:` hints (start Postgres, then API).
+
+### `backline run --enforce-policy` exits 5
+
+Policy thresholds failed after a terminal run. With `--policy strict`, any newly failing or errored check fails enforcement. Exit `0` only when the run and policy both pass; exit `5` is policy-only failure (run may still be `PASSED` or `FAILED`). Use `backline report <runId>` or inspect violations printed to stderr.
 
 ### Run stuck in `RUNNING`
 

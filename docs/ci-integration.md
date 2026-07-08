@@ -13,10 +13,23 @@ policy:
   max_latency_regression_ms: 200
 ```
 
+Or use named presets on the CLI (overrides config `policy` when set):
+
+```bash
+backline run --enforce-policy --policy strict
+backline run --enforce-policy --policy warn-only
+```
+
+| Preset | `max_newly_failing` | `max_errored_checks` | `max_latency_regression_ms` |
+|--------|---------------------|----------------------|-----------------------------|
+| `strict` | 0 | 0 | unset (no limit) |
+| `warn-only` | unset | unset | unset (no enforcement) |
+
 Then execute:
 
 ```bash
 backline run --enforce-policy --junit-output ./build/backline-policy.xml
+backline run --enforce-policy --policy strict --junit-output ./build/backline-policy.xml
 ```
 
 Behavior:

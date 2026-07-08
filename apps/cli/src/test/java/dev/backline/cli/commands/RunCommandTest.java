@@ -27,6 +27,51 @@ class RunCommandTest {
     }
 
     @Test
+    void runPolicyStrictOverridesPermissiveConfig() throws Exception {
+        HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
+        server.createContext("/", RunCommandTest::handleWithPolicyFailure);
+        server.setExecutor(null);
+        server.start();
+        try {
+            String base = "http://127.0.0.1:" + server.getAddress().getPort();
+            String yaml =
+                    """
+                    project: demo
+                    environment: local
+                    checks:
+                      - key: k
+                        name: n
+                        method: GET
+                        url: http://localhost:8081/health
+                        expected_status: 200
+                    policy:
+                      max_newly_failing: 99
+                      max_errored_checks: 99
+                    """;
+            Files.writeString(Path.of("backline.yml"), yaml);
+            int code = new CommandLine(new Backline())
+                    .execute("--api-url", base, "run", "-f", "backline.yml", "--no-wait", "--enforce-policy", "--policy", "strict");
+            assertThat(code).isEqualTo(5);
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void runRejectsUnknownPolicyPreset() {
+        ByteArrayOutputStream err = new ByteArrayOutputStream();
+        PrintStream oldErr = System.err;
+        System.setErr(new PrintStream(err, true, StandardCharsets.UTF_8));
+        try {
+            int code = new CommandLine(new Backline()).execute("run", "--policy", "invalid");
+            assertThat(code).isEqualTo(2);
+            assertThat(err.toString(StandardCharsets.UTF_8)).containsIgnoringCase("policy");
+        } finally {
+            System.setErr(oldErr);
+        }
+    }
+
+    @Test
     void runNoWaitPrintsRunId() throws Exception {
         HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
         server.createContext("/", RunCommandTest::handle);
