@@ -97,6 +97,10 @@ public final class ConfigValidator {
                 throw new ConfigParseException(
                         "assertion must set at least one of equals or exists", prefix);
             }
+            if (hasEquals && hasExists) {
+                throw new ConfigParseException(
+                        "assertion must set only one of equals or exists", prefix);
+            }
         }
     }
 

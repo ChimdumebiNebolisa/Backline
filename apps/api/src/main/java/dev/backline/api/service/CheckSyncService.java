@@ -131,6 +131,10 @@ public class CheckSyncService {
                 throw new ValidationFailedException(
                         "assertion must set at least one of equals or exists", "checks.assertions");
             }
+            if (assertion.equalsValue() != null && assertion.exists() != null) {
+                throw new ValidationFailedException(
+                        "assertion must set only one of equals or exists", "checks.assertions");
+            }
         }
     }
 

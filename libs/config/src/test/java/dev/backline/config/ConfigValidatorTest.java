@@ -116,6 +116,22 @@ class ConfigValidatorTest {
         assertThatThrownBy(() -> ConfigValidator.validate(cfg)).isInstanceOf(ConfigParseException.class);
     }
 
+    @Test
+    void rejectsAssertionWithEqualsAndExists() {
+        CheckDefinition bad = new CheckDefinition(
+                "a",
+                "n",
+                HttpMethod.GET,
+                "http://localhost/x",
+                200,
+                null,
+                List.of(new AssertionDto("$.x", 1, true)));
+        BacklineConfig cfg = new BacklineConfig("p", "e", List.of(bad));
+        assertThatThrownBy(() -> ConfigValidator.validate(cfg))
+                .isInstanceOf(ConfigParseException.class)
+                .hasMessageContaining("only one of equals or exists");
+    }
+
     private static CheckDefinition sampleCheck() {
         return new CheckDefinition("a", "n", HttpMethod.GET, "http://localhost/x", 200, null, null);
     }
