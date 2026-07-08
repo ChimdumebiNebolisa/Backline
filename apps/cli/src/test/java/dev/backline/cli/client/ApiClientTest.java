@@ -5,6 +5,7 @@ import com.sun.net.httpserver.HttpServer;
 import dev.backline.core.api.dto.CheckSyncRequest;
 import dev.backline.core.api.dto.CreateProjectRequest;
 import dev.backline.core.api.dto.CreateRunRequest;
+import dev.backline.core.api.dto.DiffBaselineStrategy;
 import dev.backline.core.error.ErrorCode;
 import org.junit.jupiter.api.Test;
 
@@ -13,6 +14,7 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -21,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class ApiClientTest {
 
     private final AtomicInteger projectCalls = new AtomicInteger();
+    private final AtomicReference<String> lastDiffQuery = new AtomicReference<>();
 
     @Test
     void roundTripsCoreEndpoints() throws Exception {
@@ -52,6 +55,14 @@ class ApiClientTest {
             var diff = client.getRunDiff(UUID.fromString(run.id()));
             assertThat(diff.runId()).isEqualTo(run.id());
             assertThat(diff.entries()).hasSize(1);
+
+            client.getRunDiff(
+                    UUID.fromString(run.id()),
+                    DiffBaselineStrategy.FIXED_RUN,
+                    UUID.fromString("33333333-3333-3333-3333-333333333333"));
+            assertThat(lastDiffQuery.get())
+                    .contains("baseline=FIXED_RUN")
+                    .contains("fixedRunId=33333333-3333-3333-3333-333333333333");
         } finally {
             server.stop(0);
         }
@@ -97,6 +108,7 @@ class ApiClientTest {
             return;
         }
         if ("GET".equals(method) && path.equals("/api/runs/22222222-2222-2222-2222-222222222222/diff")) {
+            lastDiffQuery.set(exchange.getRequestURI().getQuery());
             respond(
                     exchange,
                     200,

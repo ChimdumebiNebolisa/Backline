@@ -121,6 +121,16 @@ class RunControllerTest extends PostgresTestBase {
         ResponseEntity<String> diff = restTemplate.getForEntity("/api/runs/" + runId + "/diff", String.class);
         assertThat(diff.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(objectMapper.readTree(diff.getBody()).path("data").path("entries").isArray()).isTrue();
+
+        ResponseEntity<String> diffLastPassed =
+                restTemplate.getForEntity("/api/runs/" + runId + "/diff?baseline=LAST_PASSED", String.class);
+        assertThat(diffLastPassed.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        ResponseEntity<String> diffMissingFixed =
+                restTemplate.getForEntity("/api/runs/" + runId + "/diff?baseline=FIXED_RUN", String.class);
+        assertThat(diffMissingFixed.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(objectMapper.readTree(diffMissingFixed.getBody()).path("error").path("field").asText())
+                .isEqualTo("fixedRunId");
     }
 
     void seedCompletedRunForDiff(String slug, UUID checkUuid, UUID currentRunId) {
