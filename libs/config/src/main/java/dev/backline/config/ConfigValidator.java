@@ -6,6 +6,7 @@ import dev.backline.config.model.RunPolicy;
 import dev.backline.core.api.dto.AssertionDto;
 
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -109,15 +110,44 @@ public final class ConfigValidator {
             if (isBlank(a.path())) {
                 throw new ConfigParseException("assertion path must not be blank", prefix + ".path");
             }
-            boolean hasEquals = a.equalsValue() != null;
-            boolean hasExists = a.exists() != null;
-            if (!hasEquals && !hasExists) {
-                throw new ConfigParseException(
-                        "assertion must set at least one of equals or exists", prefix);
+            List<String> operators = new ArrayList<>();
+            if (a.equalsValue() != null) {
+                operators.add("equals");
             }
-            if (hasEquals && hasExists) {
+            if (a.exists() != null) {
+                operators.add("exists");
+            }
+            if (a.notEquals() != null) {
+                operators.add("not_equals");
+            }
+            if (a.contains() != null) {
+                operators.add("contains");
+            }
+            if (a.regex() != null) {
+                operators.add("regex");
+            }
+            if (a.gt() != null) {
+                operators.add("gt");
+            }
+            if (a.gte() != null) {
+                operators.add("gte");
+            }
+            if (a.lt() != null) {
+                operators.add("lt");
+            }
+            if (a.lte() != null) {
+                operators.add("lte");
+            }
+            if (operators.isEmpty()) {
                 throw new ConfigParseException(
-                        "assertion must set only one of equals or exists", prefix);
+                        "assertion must set exactly one supported operator", prefix);
+            }
+            if (operators.size() > 1) {
+                throw new ConfigParseException(
+                        "assertion must set only one operator, found: " + String.join(", ", operators), prefix);
+            }
+            if (a.regex() != null && a.regex().isBlank()) {
+                throw new ConfigParseException("regex must not be blank", prefix + ".regex");
             }
         }
     }

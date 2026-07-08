@@ -16,7 +16,14 @@ public final class AssertionJsonMapper {
     private static final Comparator<AssertionDto> ASSERTION_ORDER =
             Comparator.comparing((AssertionDto a) -> a.path() == null ? "" : a.path())
                     .thenComparing(a -> String.valueOf(a.equalsValue()))
-                    .thenComparing(a -> a.exists() == null ? "" : a.exists().toString());
+                    .thenComparing(a -> a.exists() == null ? "" : a.exists().toString())
+                    .thenComparing(a -> String.valueOf(a.notEquals()))
+                    .thenComparing(a -> String.valueOf(a.contains()))
+                    .thenComparing(a -> String.valueOf(a.regex()))
+                    .thenComparing(a -> String.valueOf(a.gt()))
+                    .thenComparing(a -> String.valueOf(a.gte()))
+                    .thenComparing(a -> String.valueOf(a.lt()))
+                    .thenComparing(a -> String.valueOf(a.lte()));
 
     /**
      * Serializes assertions to JSON for {@code assertions_json}. Empty or null lists are stored as SQL {@code NULL}

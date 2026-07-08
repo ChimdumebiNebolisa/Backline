@@ -25,6 +25,8 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 /**
  * Executes one HTTP check and evaluates status, latency, and JSONPath assertions.
@@ -276,6 +278,75 @@ public final class HttpCheckExecutor {
             return new AssertionResultDto(path, expectedEquals, expectedExists, actual, passed, message);
         }
 
+        if (assertion.notEquals() != null) {
+            if (!pathPresent) {
+                return new AssertionResultDto(
+                        path,
+                        null,
+                        expectedExists,
+                        null,
+                        false,
+                        "JSONPath not found: " + path);
+            }
+            boolean passed = !valuesEqual(assertion.notEquals(), actual);
+            String message = passed ? null : "Value unexpectedly matched at " + path;
+            return new AssertionResultDto(path, null, expectedExists, actual, passed, message);
+        }
+
+        if (assertion.contains() != null) {
+            if (!pathPresent) {
+                return new AssertionResultDto(path, null, expectedExists, null, false, "JSONPath not found: " + path);
+            }
+            boolean passed = containsValue(actual, assertion.contains());
+            String message = passed ? null : "Expected value to contain " + assertion.contains() + " at " + path;
+            return new AssertionResultDto(path, null, expectedExists, actual, passed, message);
+        }
+
+        if (assertion.regex() != null) {
+            if (!pathPresent) {
+                return new AssertionResultDto(path, null, expectedExists, null, false, "JSONPath not found: " + path);
+            }
+            if (!(actual instanceof String text)) {
+                return new AssertionResultDto(path, null, expectedExists, actual, false, "Regex requires string actual value");
+            }
+            try {
+                boolean passed = Pattern.compile(assertion.regex()).matcher(text).find();
+                String message = passed ? null : "Regex did not match at " + path;
+                return new AssertionResultDto(path, null, expectedExists, actual, passed, message);
+            } catch (PatternSyntaxException ex) {
+                return new AssertionResultDto(path, null, expectedExists, actual, false, "Invalid regex: " + ex.getMessage());
+            }
+        }
+
+        if (assertion.gt() != null || assertion.gte() != null || assertion.lt() != null || assertion.lte() != null) {
+            if (!pathPresent) {
+                return new AssertionResultDto(path, null, expectedExists, null, false, "JSONPath not found: " + path);
+            }
+            if (!(actual instanceof Number actualNumber)) {
+                return new AssertionResultDto(path, null, expectedExists, actual, false, "Numeric comparator requires numeric actual value");
+            }
+            double value = actualNumber.doubleValue();
+            boolean passed = true;
+            String message = null;
+            if (assertion.gt() != null && !(value > assertion.gt())) {
+                passed = false;
+                message = "Expected > " + assertion.gt() + " at " + path;
+            }
+            if (passed && assertion.gte() != null && !(value >= assertion.gte())) {
+                passed = false;
+                message = "Expected >= " + assertion.gte() + " at " + path;
+            }
+            if (passed && assertion.lt() != null && !(value < assertion.lt())) {
+                passed = false;
+                message = "Expected < " + assertion.lt() + " at " + path;
+            }
+            if (passed && assertion.lte() != null && !(value <= assertion.lte())) {
+                passed = false;
+                message = "Expected <= " + assertion.lte() + " at " + path;
+            }
+            return new AssertionResultDto(path, null, expectedExists, actual, passed, message);
+        }
+
         boolean passed = true;
         return new AssertionResultDto(path, expectedEquals, expectedExists, actual, passed, null);
     }
@@ -286,6 +357,16 @@ public final class HttpCheckExecutor {
         }
         if (expected instanceof Number n1 && actual instanceof Number n2) {
             return new BigDecimal(n1.toString()).compareTo(new BigDecimal(n2.toString())) == 0;
+        }
+        return false;
+    }
+
+    private static boolean containsValue(Object actual, Object expectedPart) {
+        if (actual instanceof String text) {
+            return text.contains(String.valueOf(expectedPart));
+        }
+        if (actual instanceof List<?> list) {
+            return list.stream().anyMatch(v -> valuesEqual(expectedPart, v));
         }
         return false;
     }

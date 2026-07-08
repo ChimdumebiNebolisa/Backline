@@ -219,6 +219,80 @@ class HttpCheckExecutorTest {
     }
 
     @Test
+    void assertionNotEqualsFailsWhenSameValue() {
+        server.enqueue(new MockResponse().setBody("{\"id\":1}"));
+        HttpCheckExecutor executor = new HttpCheckExecutor(defaultClient(), mapper);
+        HttpCheckRequest request = new HttpCheckRequest(
+                null,
+                "k",
+                "n",
+                HttpMethod.GET,
+                server.url("/").toString(),
+                200,
+                null,
+                List.of(new AssertionDto("$.id", null, null, 1, null, null, null, null, null, null)),
+                null);
+        HttpCheckOutcome outcome = executor.execute(request);
+        assertThat(outcome.status()).isEqualTo(CheckResultStatus.FAILED);
+        assertThat(outcome.errorCode()).isEqualTo("ASSERTION_FAILED");
+    }
+
+    @Test
+    void assertionContainsMatchesString() {
+        server.enqueue(new MockResponse().setBody("{\"msg\":\"hello world\"}"));
+        HttpCheckExecutor executor = new HttpCheckExecutor(defaultClient(), mapper);
+        HttpCheckRequest request = new HttpCheckRequest(
+                null,
+                "k",
+                "n",
+                HttpMethod.GET,
+                server.url("/").toString(),
+                200,
+                null,
+                List.of(new AssertionDto("$.msg", null, null, null, "hello", null, null, null, null, null)),
+                null);
+        HttpCheckOutcome outcome = executor.execute(request);
+        assertThat(outcome.status()).isEqualTo(CheckResultStatus.PASSED);
+    }
+
+    @Test
+    void assertionRegexMatchesString() {
+        server.enqueue(new MockResponse().setBody("{\"msg\":\"hello-123\"}"));
+        HttpCheckExecutor executor = new HttpCheckExecutor(defaultClient(), mapper);
+        HttpCheckRequest request = new HttpCheckRequest(
+                null,
+                "k",
+                "n",
+                HttpMethod.GET,
+                server.url("/").toString(),
+                200,
+                null,
+                List.of(new AssertionDto("$.msg", null, null, null, null, "hello-\\d+", null, null, null, null)),
+                null);
+        HttpCheckOutcome outcome = executor.execute(request);
+        assertThat(outcome.status()).isEqualTo(CheckResultStatus.PASSED);
+    }
+
+    @Test
+    void assertionGteFailsWhenLowerThanExpected() {
+        server.enqueue(new MockResponse().setBody("{\"latency\":8}"));
+        HttpCheckExecutor executor = new HttpCheckExecutor(defaultClient(), mapper);
+        HttpCheckRequest request = new HttpCheckRequest(
+                null,
+                "k",
+                "n",
+                HttpMethod.GET,
+                server.url("/").toString(),
+                200,
+                null,
+                List.of(new AssertionDto("$.latency", null, null, null, null, null, null, 10.0, null, null)),
+                null);
+        HttpCheckOutcome outcome = executor.execute(request);
+        assertThat(outcome.status()).isEqualTo(CheckResultStatus.FAILED);
+        assertThat(outcome.errorCode()).isEqualTo("ASSERTION_FAILED");
+    }
+
+    @Test
     void assertionExistsFalsePassesWhenMissing() {
         server.enqueue(new MockResponse().setBody("{\"id\":1}"));
         HttpCheckExecutor executor = new HttpCheckExecutor(defaultClient(), mapper);

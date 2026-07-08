@@ -110,4 +110,29 @@ class ConfigParserTest {
         assertThat(cfg.policy().maxErroredChecks()).isEqualTo(1);
         assertThat(cfg.policy().maxLatencyRegressionMs()).isEqualTo(150L);
     }
+
+    @Test
+    void parsesExtendedAssertionOperators() {
+        String yaml =
+                """
+                project: p
+                environment: e
+                checks:
+                  - key: a
+                    name: A
+                    method: GET
+                    url: http://localhost/x
+                    expected_status: 200
+                    assertions:
+                      - path: $.name
+                        contains: abc
+                      - path: $.count
+                        gte: 2
+                """;
+        ConfigParser parser = new ConfigParser();
+        BacklineConfig cfg = parser.parse(new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)), "x");
+        assertThat(cfg.checks().getFirst().assertions()).hasSize(2);
+        assertThat(cfg.checks().getFirst().assertions().getFirst().contains()).isEqualTo("abc");
+        assertThat(cfg.checks().getFirst().assertions().get(1).gte()).isEqualTo(2.0);
+    }
 }

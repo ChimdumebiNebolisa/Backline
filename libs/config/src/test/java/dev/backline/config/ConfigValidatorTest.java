@@ -42,14 +42,18 @@ class ConfigValidatorTest {
     void rejectsMalformedUrl() {
         CheckDefinition bad = new CheckDefinition("a", "n", HttpMethod.GET, ":::not-a-uri", 200, null, null);
         BacklineConfig cfg = new BacklineConfig("p", "e", List.of(bad), null);
-        assertThatThrownBy(() -> ConfigValidator.validate(cfg)).isInstanceOf(ConfigParseException.class);
+        assertThatThrownBy(() -> ConfigValidator.validate(cfg))
+                .isInstanceOf(ConfigParseException.class)
+                .hasMessageContaining("url");
     }
 
     @Test
     void rejectsRelativeUrl() {
         CheckDefinition bad = new CheckDefinition("a", "n", HttpMethod.GET, "/relative", 200, null, null);
         BacklineConfig cfg = new BacklineConfig("p", "e", List.of(bad), null);
-        assertThatThrownBy(() -> ConfigValidator.validate(cfg)).isInstanceOf(ConfigParseException.class);
+        assertThatThrownBy(() -> ConfigValidator.validate(cfg))
+                .isInstanceOf(ConfigParseException.class)
+                .hasMessageContaining("url");
     }
 
     @Test
@@ -130,7 +134,7 @@ class ConfigValidatorTest {
         BacklineConfig cfg = new BacklineConfig("p", "e", List.of(bad), null);
         assertThatThrownBy(() -> ConfigValidator.validate(cfg))
                 .isInstanceOf(ConfigParseException.class)
-                .hasMessageContaining("only one of equals or exists");
+                .hasMessageContaining("only one operator");
     }
 
     @Test
@@ -139,6 +143,20 @@ class ConfigValidatorTest {
         assertThatThrownBy(() -> ConfigValidator.validate(cfg))
                 .isInstanceOf(ConfigParseException.class)
                 .hasMessageContaining("policy.max_newly_failing must be >= 0");
+    }
+
+    @Test
+    void acceptsNumericComparisonOperator() {
+        CheckDefinition def = new CheckDefinition(
+                "a",
+                "n",
+                HttpMethod.GET,
+                "http://localhost/x",
+                200,
+                null,
+                List.of(new AssertionDto("$.latency", null, null, null, null, null, null, 10.0, null, null)));
+        BacklineConfig cfg = new BacklineConfig("p", "e", List.of(def), null);
+        ConfigValidator.validate(cfg);
     }
 
     private static CheckDefinition sampleCheck() {
