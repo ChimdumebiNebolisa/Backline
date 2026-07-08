@@ -19,6 +19,9 @@ for f in files:
     r=ET.parse(f).getroot()
     T+=int(r.attrib.get('tests',0));F+=int(r.attrib.get('failures',0));E+=int(r.attrib.get('errors',0));S+=int(r.attrib.get('skipped',0))
 print(f'test_xml_files={len(files)} total_tests={T} failures={F} errors={E} skipped={S} pass={T-F-E-S}')
+import os
+if os.environ.get('CI','').lower() == 'true' and S > 0:
+    raise SystemExit(f'CI audit failed: skipped={S} (expected 0)')
 PY
 
 echo "==> Summarizing JaCoCo coverage"

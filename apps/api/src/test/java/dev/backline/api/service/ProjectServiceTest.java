@@ -4,6 +4,7 @@ import dev.backline.api.exception.ConflictException;
 import dev.backline.api.exception.NotFoundException;
 import dev.backline.api.exception.ValidationFailedException;
 import dev.backline.api.persistence.PostgresTestBase;
+import dev.backline.api.persistence.entity.ProjectEntity;
 import dev.backline.core.api.dto.CreateProjectRequest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -50,7 +51,21 @@ class ProjectServiceTest extends PostgresTestBase {
     }
 
     @Test
-    void findByIdThrowsForMissingProject() {
-        assertThatThrownBy(() -> projectService.findById(UUID.randomUUID())).isInstanceOf(NotFoundException.class);
+    void getOrCreateBySlug_createsWhenMissing() {
+        String slug = "new-" + UUID.randomUUID().toString().substring(0, 6);
+        ProjectEntity created = projectService.getOrCreateBySlug(slug, "Created");
+        assertThat(created.getSlug()).isEqualTo(slug);
+    }
+
+    @Test
+    void requireBySlug_throwsNotFoundForUnknownSlug() {
+        assertThatThrownBy(() -> projectService.requireBySlug("missing-" + UUID.randomUUID()))
+                .isInstanceOf(NotFoundException.class);
+    }
+
+    @Test
+    void createRejectsBlankName() {
+        assertThatThrownBy(() -> projectService.create(new CreateProjectRequest("valid-slug", "   ")))
+                .isInstanceOf(ValidationFailedException.class);
     }
 }
