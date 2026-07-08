@@ -9,7 +9,6 @@ import dev.backline.core.api.dto.CreateProjectRequest;
 import dev.backline.core.api.dto.ProjectDto;
 import dev.backline.core.error.ErrorCode;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,8 +45,7 @@ public class ProjectService {
     @Transactional(readOnly = true)
     public Page<ProjectDto> list(int limit, int offset) {
         var sort = Sort.by(Sort.Direction.DESC, "createdAt");
-        // PageRequest is index-based; use page = offset/limit (see ARCHITECTURE list endpoints).
-        var pageable = PageRequest.of(limit > 0 ? offset / limit : 0, limit, sort);
+        var pageable = new OffsetBasedPageRequest(limit, offset, sort);
         return projectRepository.findAll(pageable).map(ProjectMapper::toDto);
     }
 

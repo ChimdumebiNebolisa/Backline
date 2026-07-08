@@ -2,9 +2,15 @@ package dev.backline.api.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.backline.api.persistence.entity.CheckEntity;
+import dev.backline.api.persistence.entity.CheckResultEntity;
+import dev.backline.api.persistence.entity.RunEntity;
 import dev.backline.api.persistence.repository.CheckRepository;
+import dev.backline.api.persistence.repository.CheckResultRepository;
 import dev.backline.api.persistence.repository.ProjectRepository;
+import dev.backline.api.persistence.repository.RunRepository;
 import dev.backline.api.support.PostgresTestBase;
+import dev.backline.core.check.CheckResultStatus;
+import dev.backline.core.run.RunStatus;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.client.TestRestTemplate;
@@ -33,6 +39,12 @@ class CheckControllerTest extends PostgresTestBase {
 
     @Autowired
     private ProjectRepository projectRepository;
+
+    @Autowired
+    private RunRepository runRepository;
+
+    @Autowired
+    private CheckResultRepository checkResultRepository;
 
     @Test
     void syncCreatesProjectThenDeactivateRemovedCheck() throws Exception {
@@ -102,10 +114,18 @@ class CheckControllerTest extends PostgresTestBase {
         assertThat(data2.size()).isEqualTo(1);
 
         String checkAId = objectMapper.readTree(r1.getBody()).path("data").get(0).path("id").asText();
+        seedHistoryRows(UUID.fromString(checkAId), slug);
         ResponseEntity<String> hist =
                 restTemplate.getForEntity("/api/checks/" + checkAId + "/history?limit=5&offset=0", String.class);
         assertThat(hist.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(objectMapper.readTree(hist.getBody()).path("page").path("limit").asInt()).isEqualTo(5);
+        ResponseEntity<String> histOffset =
+                restTemplate.getForEntity("/api/checks/" + checkAId + "/history?limit=1&offset=1", String.class);
+        var histFirstData = objectMapper.readTree(hist.getBody()).path("data");
+        var histOffsetData = objectMapper.readTree(histOffset.getBody()).path("data");
+        if (histFirstData.size() > 1 && histOffsetData.size() > 0) {
+            assertThat(histFirstData.get(0).path("runId").asText()).isNotEqualTo(histOffsetData.get(0).path("runId").asText());
+        }
 
         var projectId = projectRepository.findBySlug(slug).orElseThrow().getId();
         List<CheckEntity> all = checkRepository.findByProjectId(projectId);
@@ -203,7 +223,7 @@ class CheckControllerTest extends PostgresTestBase {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         var error = objectMapper.readTree(response.getBody()).path("error");
-        assertThat(error.path("message").asText()).contains("assertion must set at least one of equals or exists");
+        assertThat(error.path("message").asText()).contains("assertion must set exactly one supported operator");
         assertThat(error.path("field").asText()).isEqualTo("checks.assertions");
     }
 
@@ -238,7 +258,83 @@ class CheckControllerTest extends PostgresTestBase {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         var error = objectMapper.readTree(response.getBody()).path("error");
-        assertThat(error.path("message").asText()).contains("assertion must set only one of equals or exists");
+        assertThat(error.path("message").asText()).contains("assertion must set only one operator");
         assertThat(error.path("field").asText()).isEqualTo("checks.assertions");
+    }
+
+    @Test
+    void syncAcceptsExtendedAssertionOperators() throws Exception {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        String slug = "chk-" + UUID.randomUUID().toString().substring(0, 8);
+
+        Map<String, Object> request = Map.of(
+                "projectSlug",
+                slug,
+                "checks",
+                List.of(Map.of(
+                        "key",
+                        "assertion",
+                        "name",
+                        "Assertion",
+                        "method",
+                        "GET",
+                        "url",
+                        "http://localhost:8081/health",
+                        "expectedStatus",
+                        200,
+                        "assertions",
+                        List.of(
+                                Map.of("path", "$.name", "contains", "alice"),
+                                Map.of("path", "$.id", "gt", 0),
+                                Map.of("path", "$.email", "regex", ".+@.+")))));
+
+        ResponseEntity<String> response = restTemplate.postForEntity(
+                "/api/checks/sync",
+                new HttpEntity<>(objectMapper.writeValueAsString(request), headers),
+                String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
+
+    private void seedHistoryRows(UUID checkId, String slug) {
+        var projectId = projectRepository.findBySlug(slug).orElseThrow().getId();
+        CheckEntity check = checkRepository.findById(checkId).orElseThrow();
+
+        RunEntity runA = new RunEntity();
+        runA.setProjectId(projectId);
+        runA.setEnvironment("local");
+        runA.setStatus(RunStatus.PASSED);
+        runA.setConfigHash("cfg");
+        runA.setAttemptCount(0);
+        runA = runRepository.save(runA);
+
+        RunEntity runB = new RunEntity();
+        runB.setProjectId(projectId);
+        runB.setEnvironment("local");
+        runB.setStatus(RunStatus.FAILED);
+        runB.setConfigHash("cfg");
+        runB.setAttemptCount(0);
+        runB = runRepository.save(runB);
+
+        CheckResultEntity resultA = new CheckResultEntity();
+        resultA.setRunId(runA.getId());
+        resultA.setCheckId(check.getId());
+        resultA.setCheckKey(check.getKey());
+        resultA.setCheckName(check.getName());
+        resultA.setStatus(CheckResultStatus.PASSED);
+        resultA.setActualStatus(200);
+        resultA.setLatencyMs(10L);
+        checkResultRepository.save(resultA);
+
+        CheckResultEntity resultB = new CheckResultEntity();
+        resultB.setRunId(runB.getId());
+        resultB.setCheckId(check.getId());
+        resultB.setCheckKey(check.getKey());
+        resultB.setCheckName(check.getName());
+        resultB.setStatus(CheckResultStatus.FAILED);
+        resultB.setActualStatus(500);
+        resultB.setLatencyMs(20L);
+        checkResultRepository.save(resultB);
     }
 }

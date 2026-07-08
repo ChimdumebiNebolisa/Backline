@@ -41,7 +41,7 @@ class CheckSyncServiceTest {
 
         assertThatThrownBy(() -> service.sync(request))
                 .isInstanceOf(ValidationFailedException.class)
-                .hasMessageContaining("assertion must set at least one of equals or exists");
+                .hasMessageContaining("assertion must set exactly one supported operator");
     }
 
     private static CheckSyncService serviceWithWritableRepository() {

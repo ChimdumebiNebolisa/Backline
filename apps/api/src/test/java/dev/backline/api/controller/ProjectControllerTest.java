@@ -46,5 +46,22 @@ class ProjectControllerTest extends PostgresTestBase {
         ResponseEntity<String> dup =
                 restTemplate.postForEntity("/api/projects", new HttpEntity<>(body, headers), String.class);
         assertThat(dup.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+
+        String slug2 = "proj-" + UUID.randomUUID().toString().substring(0, 8);
+        String slug3 = "proj-" + UUID.randomUUID().toString().substring(0, 8);
+        restTemplate.postForEntity(
+                "/api/projects",
+                new HttpEntity<>(objectMapper.writeValueAsString(Map.of("slug", slug2, "name", "My Project 2")), headers),
+                String.class);
+        restTemplate.postForEntity(
+                "/api/projects",
+                new HttpEntity<>(objectMapper.writeValueAsString(Map.of("slug", slug3, "name", "My Project 3")), headers),
+                String.class);
+
+        ResponseEntity<String> firstPage = restTemplate.getForEntity("/api/projects?limit=2&offset=0", String.class);
+        ResponseEntity<String> secondPage = restTemplate.getForEntity("/api/projects?limit=2&offset=1", String.class);
+        var firstData = objectMapper.readTree(firstPage.getBody()).path("data");
+        var secondData = objectMapper.readTree(secondPage.getBody()).path("data");
+        assertThat(firstData.get(0).path("id").asText()).isNotEqualTo(secondData.get(0).path("id").asText());
     }
 }

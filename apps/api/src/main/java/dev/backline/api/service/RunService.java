@@ -21,7 +21,6 @@ import dev.backline.core.run.RunStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -119,7 +118,7 @@ public class RunService {
     @Transactional(readOnly = true)
     public Page<RunDto> list(RunFilter filter, int limit, int offset) {
         var sort = Sort.by(Sort.Direction.DESC, "queuedAt");
-        var pageable = PageRequest.of(limit > 0 ? offset / limit : 0, limit, sort);
+        var pageable = new OffsetBasedPageRequest(limit, offset, sort);
         return runRepository.findAll(RunSpecifications.forFilter(filter), pageable).map(RunMapper::toDto);
     }
 
