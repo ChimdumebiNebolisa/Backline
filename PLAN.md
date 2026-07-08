@@ -19,10 +19,32 @@ DROPPED
 ## Current status
 
 ```txt
-ACTIVE: none
+ACTIVE: Q5 E2E demo in CI
 BLOCKED: none
-DONE: Tasks 1-6, integration fixes A-E, Testcontainers verification, worker hardening, perf harness
+DONE: Tasks 1-6, integration fixes A-E, Testcontainers verification, worker hardening, perf harness, PR #9 feature merge
 DROPPED: none
+```
+
+## Quality hardening phase (9/10 roadmap)
+
+Only one step may be active at a time. Each step must leave a verification artifact.
+
+| Step | Status | Exit criteria |
+|------|--------|---------------|
+| Q1 Contracts + runbook + guardrail script | DONE | `docs/contracts.md`, `docs/runbook.md`, `./scripts/check-guardrails.sh` |
+| Q2 API/service test expansion | DONE | `./gradlew :apps:api:test` green; API line coverage 25.9% (floor 28% next target) |
+| Q3 Architecture enforcement | DONE | ArchUnit tests pass in `:apps:api:test` |
+| Q4 CI coverage gates | DONE | `./gradlew check` enforces JaCoCo minimums; GitHub Actions runs `check` |
+| Q5 E2E demo in CI | BACKLOG | `docs/demo-script.md` runs unattended in CI with Postgres |
+| Q6 API coverage to 65% | BACKLOG | JaCoCo API line >= 65% |
+| Q7 Policy profiles + doctor hardening | BACKLOG | PRD update + CLI smoke tests |
+
+Verification commands:
+
+```bash
+./gradlew check
+./scripts/check-guardrails.sh
+./scripts/audit-strength.sh
 ```
 
 ## Parallel Execution Map

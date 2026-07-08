@@ -20,12 +20,16 @@ public final class JarResolution {
 
     public static Optional<Path> resolveSampleApiJar() {
         return resolveFromEnv("BACKLINE_SAMPLE_API_JAR")
-                .or(() -> resolveNewestJar(walkParents(Path.of("").toAbsolutePath()), Path.of("apps", "sample-api", "build", "libs")));
+                .or(() -> resolveNewestJar(walkParents(currentWorkingDirectory()), Path.of("apps", "sample-api", "build", "libs")));
     }
 
     public static Optional<Path> resolveWorkerJar() {
         return resolveFromEnv("BACKLINE_WORKER_JAR")
-                .or(() -> resolveNewestJar(walkParents(Path.of("").toAbsolutePath()), Path.of("apps", "worker", "build", "libs")));
+                .or(() -> resolveNewestJar(walkParents(currentWorkingDirectory()), Path.of("apps", "worker", "build", "libs")));
+    }
+
+    private static Path currentWorkingDirectory() {
+        return Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize();
     }
 
     private static Optional<Path> resolveFromEnv(String name) {
@@ -59,6 +63,7 @@ public final class JarResolution {
             try (Stream<Path> stream = Files.list(libs)) {
                 Optional<Path> jar = stream
                         .filter(p -> p.toString().endsWith(".jar"))
+                        .filter(p -> !p.getFileName().toString().endsWith("-plain.jar"))
                         .max(Comparator.comparingLong(JarResolution::lastModifiedSafe));
                 if (jar.isPresent()) {
                     return jar;

@@ -1,3 +1,4 @@
+import org.gradle.testing.jacoco.tasks.JacocoCoverageVerification
 import org.gradle.testing.jacoco.tasks.JacocoReport
 
 plugins {
@@ -18,6 +19,16 @@ allprojects {
         junitJupiterVersion = '5.10.2'
         assertjVersion = '3.26.3'
         jacksonVersion = '2.17.2'
+        coverageMinimums = [
+                'apps:api'       : 0.28,
+                'apps:cli'       : 0.48,
+                'apps:sample-api': 0.85,
+                'apps:worker'    : 0.40,
+                'libs:config'    : 0.70,
+                'libs:core'      : 0.25,
+                'libs:executor'  : 0.74,
+                'libs:reporting' : 0.90,
+        ]
     }
 
     repositories {
@@ -51,4 +62,41 @@ subprojects {
             csv.required = false
         }
     }
+
+    plugins.withId('java') {
+        tasks.named('jacocoTestCoverageVerification', JacocoCoverageVerification).configure {
+            dependsOn tasks.named('jacocoTestReport')
+            violationRules {
+                rule {
+                    element = 'BUNDLE'
+                    limit {
+                        counter = 'LINE'
+                        value = 'COVEREDRATIO'
+                        minimum = (rootProject.ext.coverageMinimums[project.path] ?: 0.0) as BigDecimal
+                    }
+                }
+            }
+        }
+        tasks.named('check') {
+            dependsOn tasks.named('jacocoTestCoverageVerification')
+        }
+    }
+}
+
+tasks.register('checkGuardrails') {
+    group = 'verification'
+    description = 'Runs repository guardrail checks from GUARDRAILS.md'
+    doLast {
+        exec {
+            workingDir rootProject.projectDir
+            commandLine 'bash', 'scripts/check-guardrails.sh'
+        }
+    }
+}
+
+tasks.register('check') {
+    group = 'verification'
+    description = 'Runs tests, coverage gates, and guardrail checks for all Java subprojects'
+    dependsOn subprojects.findAll { it.plugins.hasPlugin('java') }.collect { it.tasks.named('check') }
+    dependsOn tasks.named('checkGuardrails')
 }
