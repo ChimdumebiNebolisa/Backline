@@ -74,9 +74,10 @@ class MigrationSmokeTest extends PostgresTestBase {
     @Test
     void duplicateIdempotencyKeyViolatesUniqueConstraint() {
         ProjectEntity project = persistProject();
+        String idempotencyKey = "idem-" + UUID.randomUUID();
 
-        runRepository.saveAndFlush(newRun(project.getId(), "idem-1"));
-        assertThatThrownBy(() -> runRepository.saveAndFlush(newRun(project.getId(), "idem-1")))
+        runRepository.saveAndFlush(newRun(project.getId(), idempotencyKey));
+        assertThatThrownBy(() -> runRepository.saveAndFlush(newRun(project.getId(), idempotencyKey)))
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 
