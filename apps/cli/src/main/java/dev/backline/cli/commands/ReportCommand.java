@@ -8,6 +8,7 @@ import dev.backline.core.api.dto.ProjectSummaryDto;
 import dev.backline.core.api.dto.RunDiffDto;
 import dev.backline.core.api.dto.RunDto;
 import dev.backline.reporting.DefaultMarkdownReportGenerator;
+import dev.backline.reporting.DefaultJsonReportGenerator;
 import dev.backline.reporting.MarkdownReportGenerator;
 import dev.backline.reporting.ReportInputs;
 import picocli.CommandLine.Command;
@@ -38,6 +39,9 @@ public class ReportCommand implements Callable<Integer> {
     @Option(names = {"-o", "--output"}, description = "Output Markdown path")
     private String output;
 
+    @Option(names = {"--json-output"}, description = "Optional JSON report output path")
+    private String jsonOutput;
+
     @Override
     public Integer call() throws Exception {
         BacklineApiClient client = new BacklineApiClient(parent.apiUrl());
@@ -58,8 +62,8 @@ public class ReportCommand implements Callable<Integer> {
             return CliApiErrors.print(parent.apiUrl(), e);
         }
         MarkdownReportGenerator generator = new DefaultMarkdownReportGenerator();
-        String md = generator.generate(new ReportInputs(
-                run, summary.project(), results, diff, summary, Instant.now()));
+        ReportInputs reportInputs = new ReportInputs(run, summary.project(), results, diff, summary, Instant.now());
+        String md = generator.generate(reportInputs);
         Path out = Path.of(output == null ? ("backline-report-" + runId + ".md") : output).toAbsolutePath().normalize();
         Path parent = out.getParent();
         if (parent != null) {
@@ -67,6 +71,16 @@ public class ReportCommand implements Callable<Integer> {
         }
         Files.writeString(out, md);
         System.out.println(out);
+        if (jsonOutput != null && !jsonOutput.isBlank()) {
+            String json = new DefaultJsonReportGenerator().generate(reportInputs);
+            Path jsonPath = Path.of(jsonOutput).toAbsolutePath().normalize();
+            Path jsonParent = jsonPath.getParent();
+            if (jsonParent != null) {
+                Files.createDirectories(jsonParent);
+            }
+            Files.writeString(jsonPath, json);
+            System.out.println(jsonPath);
+        }
         return 0;
     }
 }

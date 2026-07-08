@@ -98,6 +98,19 @@ public class WorkerRunDao {
     }
 
     public void writeCheckResult(UUID runId, CheckResultRow row) {
+        writeCheckResultInternal(runId, row);
+    }
+
+    public void persistResultsAndFinalize(UUID runId, List<CheckResultRow> rows, RunStatus terminalStatus) {
+        transactionTemplate.executeWithoutResult(status -> {
+            for (CheckResultRow row : rows) {
+                writeCheckResultInternal(runId, row);
+            }
+            finalizeRunInternal(runId, terminalStatus, null);
+        });
+    }
+
+    private void writeCheckResultInternal(UUID runId, CheckResultRow row) {
         jdbcTemplate.update(
                 """
                         INSERT INTO check_results (
@@ -153,6 +166,10 @@ public class WorkerRunDao {
      * @throws IllegalStateException when no {@code RUNNING} row matches {@code runId}
      */
     public void finalizeRun(UUID runId, RunStatus terminalStatus, String message) {
+        transactionTemplate.executeWithoutResult(status -> finalizeRunInternal(runId, terminalStatus, message));
+    }
+
+    private void finalizeRunInternal(UUID runId, RunStatus terminalStatus, String message) {
         int rows = jdbcTemplate.update(
                 """
                         UPDATE runs
@@ -200,25 +217,26 @@ public class WorkerRunDao {
      * Clears partial results, returns the run to {@link RunStatus#QUEUED}, and schedules the next attempt.
      */
     public void requeueForRetry(UUID runId, long backoffMs) {
-        jdbcTemplate.update("DELETE FROM check_results WHERE run_id = ?", runId);
-        int rows = jdbcTemplate.update(
-                """
-                        UPDATE runs
-                        SET status = 'QUEUED',
-                            next_attempt_at = ?,
-                            locked_by = NULL,
-                            locked_at = NULL,
-                            updated_at = now()
-                        WHERE id = ?
-                          AND status = 'RUNNING'
-                        """,
-                Timestamp.from(Instant.now().plusMillis(backoffMs)),
-                runId);
-        if (rows != 1) {
-            throw new IllegalStateException("Expected exactly one RUNNING run to requeue for id " + runId);
-        }
-
-        insertRunEvent(runId, RETRY_SCHEDULED, "Scheduled retry after " + backoffMs + " ms backoff");
+        transactionTemplate.executeWithoutResult(status -> {
+            jdbcTemplate.update("DELETE FROM check_results WHERE run_id = ?", runId);
+            int rows = jdbcTemplate.update(
+                    """
+                            UPDATE runs
+                            SET status = 'QUEUED',
+                                next_attempt_at = ?,
+                                locked_by = NULL,
+                                locked_at = NULL,
+                                updated_at = now()
+                            WHERE id = ?
+                              AND status = 'RUNNING'
+                            """,
+                    Timestamp.from(Instant.now().plusMillis(backoffMs)),
+                    runId);
+            if (rows != 1) {
+                throw new IllegalStateException("Expected exactly one RUNNING run to requeue for id " + runId);
+            }
+            insertRunEvent(runId, RETRY_SCHEDULED, "Scheduled retry after " + backoffMs + " ms backoff");
+        });
     }
 
     /**

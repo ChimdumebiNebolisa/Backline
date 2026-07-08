@@ -9,6 +9,7 @@ import dev.backline.api.persistence.repository.CheckResultRepository;
 import dev.backline.api.persistence.repository.ProjectRepository;
 import dev.backline.api.persistence.repository.RunRepository;
 import dev.backline.api.support.PostgresTestBase;
+import dev.backline.core.api.dto.DiffBaselineStrategy;
 import dev.backline.core.api.dto.RunDiffChangeType;
 import dev.backline.core.check.CheckResultStatus;
 import dev.backline.core.check.HttpMethod;
@@ -106,6 +107,46 @@ class DiffServiceTest extends PostgresTestBase {
         var byKey = diff.entries().stream().collect(Collectors.toMap(e -> e.checkKey(), e -> e));
         assertThat(byKey.get("x").changeType()).isEqualTo(RunDiffChangeType.LATENCY_CHANGED);
         assertThat(byKey.get("y").changeType()).isEqualTo(RunDiffChangeType.ASSERTION_CHANGED);
+    }
+
+    @Test
+    void lastPassedBaselineSkipsLatestFailedRun() {
+        RunCtx ctx = baseProjectAndCheck("lp-" + UUID.randomUUID().toString().substring(0, 8));
+        RunEntity passed = saveRun(ctx.project, RunStatus.PASSED, "2022-01-01T00:00:00Z");
+        passed.setFinishedAt(Instant.parse("2022-01-01T00:10:00Z"));
+        runRepository.save(passed);
+        saveResult(passed, ctx.check, "x", "X", CheckResultStatus.PASSED, 200, 10L, null);
+
+        RunEntity failed = saveRun(ctx.project, RunStatus.FAILED, "2022-02-01T00:00:00Z");
+        failed.setFinishedAt(Instant.parse("2022-02-01T00:10:00Z"));
+        runRepository.save(failed);
+        saveResult(failed, ctx.check, "x", "X", CheckResultStatus.FAILED, 500, 20L, null);
+
+        RunEntity current = saveRun(ctx.project, RunStatus.QUEUED, "2022-03-01T00:00:00Z");
+        saveResult(current, ctx.check, "x", "X", CheckResultStatus.PASSED, 200, 10L, null);
+
+        var diff = diffService.computeDiff(current.getId(), DiffBaselineStrategy.LAST_PASSED, null);
+        assertThat(diff.previousRunId()).isEqualTo(passed.getId().toString());
+    }
+
+    @Test
+    void fixedRunBaselineUsesRequestedRun() {
+        RunCtx ctx = baseProjectAndCheck("fx-" + UUID.randomUUID().toString().substring(0, 8));
+        RunEntity older = saveRun(ctx.project, RunStatus.PASSED, "2022-01-01T00:00:00Z");
+        older.setFinishedAt(Instant.parse("2022-01-01T00:10:00Z"));
+        runRepository.save(older);
+        saveResult(older, ctx.check, "x", "X", CheckResultStatus.PASSED, 200, 10L, null);
+
+        RunEntity newer = saveRun(ctx.project, RunStatus.FAILED, "2022-02-01T00:00:00Z");
+        newer.setFinishedAt(Instant.parse("2022-02-01T00:10:00Z"));
+        runRepository.save(newer);
+        saveResult(newer, ctx.check, "x", "X", CheckResultStatus.FAILED, 500, 20L, null);
+
+        RunEntity current = saveRun(ctx.project, RunStatus.QUEUED, "2022-03-01T00:00:00Z");
+        saveResult(current, ctx.check, "x", "X", CheckResultStatus.PASSED, 200, 10L, null);
+
+        var diff = diffService.computeDiff(current.getId(), DiffBaselineStrategy.FIXED_RUN, newer.getId());
+        assertThat(diff.previousRunId()).isEqualTo(newer.getId().toString());
     }
 
     private RunCtx baseProjectAndCheck(String slug) {

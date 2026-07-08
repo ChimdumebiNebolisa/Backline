@@ -2,13 +2,19 @@ package dev.backline.cli.commands;
 
 import dev.backline.cli.client.ApiClientException;
 import dev.backline.cli.client.BacklineApiClient;
+import dev.backline.cli.policy.JunitPolicyReportWriter;
+import dev.backline.cli.policy.PolicyEvaluation;
+import dev.backline.cli.policy.RunPolicyEvaluator;
 import dev.backline.config.ConfigParseException;
 import dev.backline.config.ConfigParser;
 import dev.backline.config.model.BacklineConfig;
+import dev.backline.config.model.RunPolicy;
 import dev.backline.core.api.dto.CheckDefinitionDto;
 import dev.backline.core.api.dto.CheckSyncRequest;
 import dev.backline.core.api.dto.CreateProjectRequest;
 import dev.backline.core.api.dto.CreateRunRequest;
+import dev.backline.core.api.dto.DiffBaselineStrategy;
+import dev.backline.core.api.dto.RunDiffDto;
 import dev.backline.core.error.ErrorCode;
 import dev.backline.core.run.RunStatus;
 import picocli.CommandLine.Command;
@@ -47,10 +53,31 @@ public class RunCommand implements Callable<Integer> {
     @Option(names = {"--idempotency-key"}, description = "Optional idempotency key forwarded to the API")
     private String idempotencyKey;
 
+    @Option(names = {"--enforce-policy"}, description = "Evaluate policy thresholds after run completion")
+    private boolean enforcePolicy;
+
+    @Option(names = {"--junit-output"}, description = "Optional JUnit XML output path for policy enforcement")
+    private Path junitOutput;
+
+    @Option(
+            names = {"--baseline"},
+            description = "Diff baseline strategy used for policy evaluation: ${COMPLETION-CANDIDATES}",
+            defaultValue = "PREVIOUS_COMPLETED")
+    private DiffBaselineStrategy baseline;
+
+    @Option(
+            names = {"--baseline-run-id"},
+            description = "Required when --baseline=FIXED_RUN")
+    private UUID baselineRunId;
+
     @Override
     public Integer call() throws Exception {
         if (!noWait && timeoutSeconds <= 0) {
             System.err.println("--timeout-seconds must be greater than zero.");
+            return 2;
+        }
+        if (enforcePolicy && baseline == DiffBaselineStrategy.FIXED_RUN && baselineRunId == null) {
+            System.err.println("--baseline-run-id is required when --baseline=FIXED_RUN");
             return 2;
         }
 
@@ -90,11 +117,19 @@ public class RunCommand implements Callable<Integer> {
             if (noWait) {
                 RunStatus st = run.status();
                 if (st == RunStatus.QUEUED) {
+                    if (enforcePolicy) {
+                        System.err.println("--enforce-policy requires a terminal run status; remove --no-wait.");
+                        return 2;
+                    }
                     return 0;
+                }
+                if (enforcePolicy && st.isTerminal()) {
+                    PolicyEvaluation evaluation = evaluatePolicy(client, runId, config.policy());
+                    return policyAwareExit(runId, st, evaluation);
                 }
                 return exitForTerminal(st);
             }
-            return waitForTerminal(client, runId, run.status());
+            return waitForTerminal(client, runId, run.status(), enforcePolicy ? config.policy() : null);
         } catch (ApiClientException e) {
             System.err.println("API error (" + e.httpStatus() + "): " + e.getMessage());
             return 1;
@@ -109,7 +144,8 @@ public class RunCommand implements Callable<Integer> {
         }
     }
 
-    private int waitForTerminal(BacklineApiClient client, UUID runId, RunStatus initial) throws Exception {
+    private int waitForTerminal(BacklineApiClient client, UUID runId, RunStatus initial, RunPolicy policy)
+            throws Exception {
         long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(timeoutSeconds);
         RunStatus lastPrinted = null;
         RunStatus current = initial;
@@ -119,6 +155,10 @@ public class RunCommand implements Callable<Integer> {
                 lastPrinted = current;
             }
             if (current != null && current.isTerminal()) {
+                if (policy != null) {
+                    PolicyEvaluation evaluation = evaluatePolicy(client, runId, policy);
+                    return policyAwareExit(runId, current, evaluation);
+                }
                 return exitForTerminal(current);
             }
             if (System.nanoTime() > deadline) {
@@ -128,6 +168,33 @@ public class RunCommand implements Callable<Integer> {
             Thread.sleep(500);
             current = client.getRun(runId).status();
         }
+    }
+
+    private int policyAwareExit(UUID runId, RunStatus terminalStatus, PolicyEvaluation evaluation)
+            throws java.io.IOException {
+        if (junitOutput != null) {
+            JunitPolicyReportWriter.write(junitOutput, runId.toString(), evaluation);
+        }
+        if (!evaluation.passed()) {
+            System.err.println("Policy violations:");
+            for (String violation : evaluation.violations()) {
+                System.err.println("- " + violation);
+            }
+            return 5;
+        }
+        return exitForTerminal(terminalStatus);
+    }
+
+    private PolicyEvaluation evaluatePolicy(BacklineApiClient client, UUID runId, RunPolicy configuredPolicy)
+            throws java.io.IOException, InterruptedException {
+        RunPolicy policy = configuredPolicy == null ? RunPolicyEvaluator.DEFAULT_POLICY : configuredPolicy;
+        var results = client.getRunResults(runId);
+        RunDiffDto diff = client.getRunDiff(runId, baseline, baselineRunId);
+        PolicyEvaluation evaluation = RunPolicyEvaluator.evaluate(policy, results, diff);
+        System.out.println("policy: newly_failing=" + evaluation.newlyFailingCount()
+                + ", errored_checks=" + evaluation.erroredChecksCount()
+                + ", max_latency_regression_ms=" + evaluation.maxLatencyRegressionMs());
+        return evaluation;
     }
 
     private static int exitForTerminal(RunStatus status) {

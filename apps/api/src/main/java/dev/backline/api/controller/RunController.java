@@ -5,6 +5,7 @@ import dev.backline.core.api.ListResponse;
 import dev.backline.core.api.PageMeta;
 import dev.backline.core.api.dto.CheckResultDto;
 import dev.backline.core.api.dto.CreateRunRequest;
+import dev.backline.core.api.dto.DiffBaselineStrategy;
 import dev.backline.core.api.dto.RunDiffDto;
 import dev.backline.core.api.dto.RunDto;
 import dev.backline.core.run.RunStatus;
@@ -79,8 +80,11 @@ public class RunController {
     }
 
     @GetMapping("/{runId}/diff")
-    public DataResponse<RunDiffDto> diff(@PathVariable UUID runId) {
-        return DataResponse.of(diffService.computeDiff(runId));
+    public DataResponse<RunDiffDto> diff(
+            @PathVariable UUID runId,
+            @RequestParam(defaultValue = "PREVIOUS_COMPLETED") DiffBaselineStrategy baseline,
+            @RequestParam(required = false) UUID fixedRunId) {
+        return DataResponse.of(diffService.computeDiff(runId, baseline, fixedRunId));
     }
 
     private static CreateRunRequest toCore(CreateRunBody body) {

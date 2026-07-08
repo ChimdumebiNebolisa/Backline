@@ -17,6 +17,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -41,7 +42,37 @@ class CheckSyncServiceTest {
 
         assertThatThrownBy(() -> service.sync(request))
                 .isInstanceOf(ValidationFailedException.class)
-                .hasMessageContaining("assertion must set at least one of equals or exists");
+                .hasMessageContaining("assertion must set exactly one supported operator");
+    }
+
+    @Test
+    void syncAcceptsExtendedAssertionOperators() {
+        CheckSyncService service = serviceWithWritableRepository();
+        CheckSyncRequest request = new CheckSyncRequest(
+                "sample",
+                "Sample",
+                List.of(
+                        new CheckDefinitionDto(
+                                "health",
+                                "Health",
+                                HttpMethod.GET,
+                                "http://localhost:8081/health",
+                                200,
+                                null,
+                                List.of(
+                                        new AssertionDto("$.name", null, null, null, "alice", null, null, null, null, null),
+                                        new AssertionDto("$.latency", null, null, null, null, null, 10.0, null, null, null))),
+                        new CheckDefinitionDto(
+                                "regex",
+                                "Regex",
+                                HttpMethod.GET,
+                                "http://localhost:8081/regex",
+                                200,
+                                null,
+                                List.of(new AssertionDto("$.email", null, null, null, null, ".+@.+", null, null, null, null)))));
+
+        var synced = service.sync(request);
+        assertThat(synced).hasSize(2);
     }
 
     private static CheckSyncService serviceWithWritableRepository() {

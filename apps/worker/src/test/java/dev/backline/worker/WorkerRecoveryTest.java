@@ -29,6 +29,7 @@ class WorkerRecoveryTest extends PostgresWorkerTestBase {
     void staleRunningRunIsRequeuedForRetry() {
         UUID projectId = insertProject();
         UUID runId = insertRunInState(projectId, "RUNNING", 1, minutesAgo(10), "worker-dead");
+        insertPartialResult(runId);
 
         int recovered = dao.recoverStaleRuns(300_000, 3, 1000);
         assertThat(recovered).isEqualTo(1);
@@ -44,6 +45,9 @@ class WorkerRecoveryTest extends PostgresWorkerTestBase {
                 "SELECT COUNT(*) FROM run_events WHERE run_id = ? AND event_type = 'STALE_RECOVERED'",
                 Long.class, runId);
         assertThat(events).isEqualTo(1L);
+        Integer remainingResults =
+                jdbcTemplate.queryForObject("SELECT count(*) FROM check_results WHERE run_id = ?", Integer.class, runId);
+        assertThat(remainingResults).isZero();
     }
 
     @Test
@@ -208,6 +212,16 @@ class WorkerRecoveryTest extends PostgresWorkerTestBase {
                 VALUES (gen_random_uuid(), ?, ?, ?, 'GET', 'http://localhost/test', 200, 'cfg', TRUE)
                 """,
                 projectId, key, key);
+    }
+
+    private void insertPartialResult(UUID runId) {
+        jdbcTemplate.update(
+                """
+                INSERT INTO check_results (
+                  id, run_id, check_id, check_key, check_name, status, actual_status, latency_ms, assertions_json, created_at
+                ) VALUES (gen_random_uuid(), ?, NULL, 'partial', 'partial', 'ERROR', 500, 10, '[]'::jsonb, now())
+                """,
+                runId);
     }
 
     private String getRunStatus(UUID runId) {

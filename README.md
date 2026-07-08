@@ -60,6 +60,44 @@ backline diff <runId>
 backline report <runId>
 ```
 
+To emit a machine-readable artifact for CI or post-processing:
+
+```bash
+backline report <runId> --json-output ./build/backline-report.json
+```
+
+You can choose the diff baseline strategy:
+
+```bash
+backline diff <runId> --baseline LAST_PASSED
+backline diff <runId> --baseline FIXED_RUN --fixed-run-id <baselineRunId>
+```
+
+For policy-enforced runs, the same baseline options apply:
+
+```bash
+backline run --enforce-policy --baseline LAST_PASSED
+```
+
+### Optional CI policy enforcement
+
+Backline can evaluate run outcomes against policy thresholds in `backline.yml`:
+
+```yaml
+policy:
+  max_newly_failing: 0
+  max_errored_checks: 0
+  max_latency_regression_ms: 200
+```
+
+Then run:
+
+```bash
+backline run --enforce-policy --junit-output ./build/backline-policy.xml
+```
+
+When policy checks fail, the command exits with code `5` and prints violations. The optional JUnit file lets CI systems annotate the failure.
+
 **PowerShell** examples:
 
 ```powershell
@@ -145,6 +183,15 @@ docs/           API examples, limitations, demo script
 - **OpenAPI JSON:** `http://localhost:8080/v3/api-docs`
 
 Copy/paste **curl** samples: [docs/api-examples.md](docs/api-examples.md).
+
+CI integration and policy gating details: [docs/ci-integration.md](docs/ci-integration.md).
+Quality and runtime hardening checklist: [docs/audit-playbook.md](docs/audit-playbook.md).
+
+Quick audit command:
+
+```bash
+./scripts/audit-strength.sh
+```
 
 ## Demo path (detailed)
 

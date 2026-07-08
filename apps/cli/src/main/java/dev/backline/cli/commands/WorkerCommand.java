@@ -4,6 +4,7 @@ import dev.backline.cli.launch.JarResolution;
 import picocli.CommandLine.Command;
 
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 
@@ -22,7 +23,7 @@ public class WorkerCommand implements Callable<Integer> {
                     "Worker JAR not found. Set BACKLINE_WORKER_JAR or run ./gradlew :apps:worker:bootJar first.");
             return 1;
         }
-        ProcessBuilder pb = new ProcessBuilder("java", "-jar", jar.get().toString());
+        ProcessBuilder pb = new ProcessBuilder(buildCommand(jar.get()));
         pb.inheritIO();
         Process process = pb.start();
         Thread hook = new Thread(() -> {
@@ -38,5 +39,13 @@ public class WorkerCommand implements Callable<Integer> {
             // JVM is shutting down
         }
         return code;
+    }
+
+    static List<String> buildCommand(Path workerJar) {
+        return List.of(
+                "java",
+                "-jar",
+                workerJar.toString(),
+                "--spring.main.keep-alive=true");
     }
 }

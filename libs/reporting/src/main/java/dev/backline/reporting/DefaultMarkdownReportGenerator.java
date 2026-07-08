@@ -53,6 +53,8 @@ public final class DefaultMarkdownReportGenerator implements MarkdownReportGener
 
         sb.append(section("Project summary", projectSummaryBody(inputs.summary())));
 
+        sb.append(section("Regression risk score", regressionRiskBody(results, diff)));
+
         sb.append(section(
                 "Known limitations",
                 "See [docs/known-limitations.md](docs/known-limitations.md) for current product constraints "
@@ -229,6 +231,21 @@ public final class DefaultMarkdownReportGenerator implements MarkdownReportGener
 
     private static String section(String title, String body) {
         return "## " + title + "\n\n" + body + "\n";
+    }
+
+    private static String regressionRiskBody(List<CheckResultDto> results, RunDiffDto diff) {
+        int risk = 0;
+        for (CheckResultDto result : results) {
+            if (result.status() == CheckResultStatus.ERROR) {
+                risk += 3;
+            } else if (result.status() == CheckResultStatus.FAILED) {
+                risk += 2;
+            }
+        }
+        int diffSize = diff.entries() == null ? 0 : diff.entries().size();
+        risk += diffSize;
+        return "- **Risk score**: " + risk + "\n"
+                + "- Formula: failed*2 + errored*3 + diffEntryCount\n";
     }
 
     private static String table(List<String> headers, List<List<String>> rows) {

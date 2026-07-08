@@ -119,6 +119,27 @@ public final class ConfigParser {
         if (a.exists() != null) {
             m.put("exists", a.exists());
         }
+        if (a.notEquals() != null) {
+            m.put("not_equals", a.notEquals());
+        }
+        if (a.contains() != null) {
+            m.put("contains", a.contains());
+        }
+        if (a.regex() != null) {
+            m.put("regex", a.regex());
+        }
+        if (a.gt() != null) {
+            m.put("gt", a.gt());
+        }
+        if (a.gte() != null) {
+            m.put("gte", a.gte());
+        }
+        if (a.lt() != null) {
+            m.put("lt", a.lt());
+        }
+        if (a.lte() != null) {
+            m.put("lte", a.lte());
+        }
         return m;
     }
 

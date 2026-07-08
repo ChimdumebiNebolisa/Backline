@@ -137,6 +137,7 @@ public class WorkerLoop {
 
         boolean anyError = false;
         boolean anyFailed = false;
+        List<CheckResultRow> rows = new java.util.ArrayList<>();
 
         for (CheckRow check : checks) {
             if (dao.isRunCancelled(run.runId())) {
@@ -168,19 +169,17 @@ public class WorkerLoop {
             }
 
             String assertionsJson = mapper.writeValueAsString(outcome.assertionResults());
-            dao.writeCheckResult(
-                    run.runId(),
-                    new CheckResultRow(
-                            check.checkId(),
-                            check.key(),
-                            check.name(),
-                            outcome.status(),
-                            outcome.actualStatus(),
-                            outcome.latencyMs(),
-                            outcome.errorCode(),
-                            outcome.errorMessage(),
-                            outcome.responsePreview(),
-                            assertionsJson));
+            rows.add(new CheckResultRow(
+                    check.checkId(),
+                    check.key(),
+                    check.name(),
+                    outcome.status(),
+                    outcome.actualStatus(),
+                    outcome.latencyMs(),
+                    outcome.errorCode(),
+                    outcome.errorMessage(),
+                    outcome.responsePreview(),
+                    assertionsJson));
         }
 
         if (dao.isRunCancelled(run.runId())) {
@@ -189,7 +188,7 @@ public class WorkerLoop {
         }
 
         RunStatus terminal = anyError ? RunStatus.ERROR : anyFailed ? RunStatus.FAILED : RunStatus.PASSED;
-        dao.finalizeRun(run.runId(), terminal);
+        dao.persistResultsAndFinalize(run.runId(), rows, terminal);
         log.info("run.completed runId={} status={} workerId={} attempt={}",
                 run.runId(), terminal, props.getId(), run.attemptCount());
     }

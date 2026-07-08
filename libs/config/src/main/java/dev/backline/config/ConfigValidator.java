@@ -2,7 +2,9 @@ package dev.backline.config;
 
 import dev.backline.config.model.BacklineConfig;
 import dev.backline.config.model.CheckDefinition;
+import dev.backline.config.model.RunPolicy;
 import dev.backline.core.api.dto.AssertionDto;
+import dev.backline.core.validation.AssertionValidator;
 
 import java.net.URI;
 import java.util.HashSet;
@@ -76,6 +78,23 @@ public final class ConfigValidator {
             }
             validateAssertions(prefix, c.assertions());
         }
+        validatePolicy(config.policy());
+    }
+
+    private static void validatePolicy(RunPolicy policy) {
+        if (policy == null) {
+            return;
+        }
+        if (policy.maxNewlyFailing() != null && policy.maxNewlyFailing() < 0) {
+            throw new ConfigParseException("policy.max_newly_failing must be >= 0", "policy.max_newly_failing");
+        }
+        if (policy.maxErroredChecks() != null && policy.maxErroredChecks() < 0) {
+            throw new ConfigParseException("policy.max_errored_checks must be >= 0", "policy.max_errored_checks");
+        }
+        if (policy.maxLatencyRegressionMs() != null && policy.maxLatencyRegressionMs() < 0) {
+            throw new ConfigParseException(
+                    "policy.max_latency_regression_ms must be >= 0", "policy.max_latency_regression_ms");
+        }
     }
 
     private static void validateAssertions(String checkPrefix, List<AssertionDto> assertions) {
@@ -85,21 +104,10 @@ public final class ConfigValidator {
         for (int j = 0; j < assertions.size(); j++) {
             String prefix = checkPrefix + ".assertions[" + j + "]";
             AssertionDto a = assertions.get(j);
-            if (a == null) {
-                throw new ConfigParseException("assertion must not be null", prefix);
-            }
-            if (isBlank(a.path())) {
-                throw new ConfigParseException("assertion path must not be blank", prefix + ".path");
-            }
-            boolean hasEquals = a.equalsValue() != null;
-            boolean hasExists = a.exists() != null;
-            if (!hasEquals && !hasExists) {
-                throw new ConfigParseException(
-                        "assertion must set at least one of equals or exists", prefix);
-            }
-            if (hasEquals && hasExists) {
-                throw new ConfigParseException(
-                        "assertion must set only one of equals or exists", prefix);
+            try {
+                AssertionValidator.validateSingleOperator(a);
+            } catch (IllegalArgumentException ex) {
+                throw new ConfigParseException(ex.getMessage(), prefix, ex);
             }
         }
     }

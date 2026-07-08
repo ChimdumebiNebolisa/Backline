@@ -4,7 +4,7 @@ Backline is intentionally scoped as a **local-first regression ledger**, not a f
 
 - **Single-tenant**: there is no authentication, authorization, or per-user isolation.
 - **No interactive API client**: Backline is not a Postman replacement; it does not focus on ad-hoc request building or GUI workflows.
-- **JSONPath assertions**: supported operators are **`equals`** and **`exists`** only in this build.
+- **JSONPath assertions**: supported operators are intentionally limited to deterministic single-operator rules (`equals`, `exists`, `not_equals`, `contains`, `regex`, `gt`, `gte`, `lt`, `lte`).
 - **Response previews** are bounded (for example, **4096 bytes**) to avoid storing large payloads by default.
 - **Worker retries** apply to **runtime / worker errors** only, not to failed HTTP assertions (a failed assertion is a failed check, not a retryable infrastructure fault).
 - **Markdown reports only** in the must-have scope; there is no built-in HTML report in this build.

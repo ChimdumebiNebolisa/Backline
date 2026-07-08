@@ -5,6 +5,7 @@ import dev.backline.cli.client.ApiClientException;
 import dev.backline.cli.client.BacklineApiClient;
 import dev.backline.cli.client.RunListQuery;
 import dev.backline.cli.output.OutputPrinter;
+import dev.backline.config.ConfigParseException;
 import dev.backline.config.ConfigParser;
 import dev.backline.core.api.dto.RunDto;
 import picocli.CommandLine.Command;
@@ -50,12 +51,17 @@ public class HistoryCommand implements Callable<Integer> {
         if (projectSlug == null || env == null) {
             Path yml = Path.of("backline.yml");
             if (Files.isRegularFile(yml)) {
-                var cfg = new ConfigParser().parse(yml.toAbsolutePath().normalize());
-                if (projectSlug == null) {
-                    projectSlug = cfg.project();
-                }
-                if (env == null) {
-                    env = cfg.environment();
+                try {
+                    var cfg = new ConfigParser().parse(yml.toAbsolutePath().normalize());
+                    if (projectSlug == null) {
+                        projectSlug = cfg.project();
+                    }
+                    if (env == null) {
+                        env = cfg.environment();
+                    }
+                } catch (ConfigParseException e) {
+                    System.err.println(e.getMessage());
+                    return 2;
                 }
             }
         }

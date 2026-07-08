@@ -38,6 +38,22 @@ public interface RunRepository extends JpaRepository<RunEntity, UUID>, JpaSpecif
             @Param("excludeId") UUID excludeId,
             Pageable pageable);
 
+    @Query(
+            """
+            select r from RunEntity r
+            where r.projectId = :projectId
+              and r.environment = :env
+              and r.status = dev.backline.core.run.RunStatus.PASSED
+              and r.id <> :excludeId
+              and r.finishedAt is not null
+            order by r.finishedAt desc
+            """)
+    List<RunEntity> findPreviousPassedRun(
+            @Param("projectId") UUID projectId,
+            @Param("env") String env,
+            @Param("excludeId") UUID excludeId,
+            Pageable pageable);
+
     long countByProjectIdAndStatus(UUID projectId, RunStatus status);
 
     long countByProjectId(UUID projectId);

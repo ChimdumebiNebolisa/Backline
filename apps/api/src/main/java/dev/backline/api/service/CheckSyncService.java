@@ -13,6 +13,7 @@ import dev.backline.core.api.dto.AssertionDto;
 import dev.backline.core.api.dto.CheckDefinitionDto;
 import dev.backline.core.api.dto.CheckDto;
 import dev.backline.core.api.dto.CheckSyncRequest;
+import dev.backline.core.validation.AssertionValidator;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -121,19 +122,10 @@ public class CheckSyncService {
             return;
         }
         for (var assertion : assertions) {
-            if (assertion == null) {
-                throw new ValidationFailedException("assertion must not be null", "checks.assertions");
-            }
-            if (assertion.path() == null || assertion.path().isBlank()) {
-                throw new ValidationFailedException("assertion path must not be blank", "checks.assertions");
-            }
-            if (assertion.equalsValue() == null && assertion.exists() == null) {
-                throw new ValidationFailedException(
-                        "assertion must set at least one of equals or exists", "checks.assertions");
-            }
-            if (assertion.equalsValue() != null && assertion.exists() != null) {
-                throw new ValidationFailedException(
-                        "assertion must set only one of equals or exists", "checks.assertions");
+            try {
+                AssertionValidator.validateSingleOperator(assertion);
+            } catch (IllegalArgumentException ex) {
+                throw new ValidationFailedException(ex.getMessage(), "checks.assertions");
             }
         }
     }
@@ -172,6 +164,27 @@ public class CheckSyncService {
                 }
                 if (a.equalsValue() != null) {
                     n.set("equals", objectMapper.valueToTree(a.equalsValue()));
+                }
+                if (a.notEquals() != null) {
+                    n.set("not_equals", objectMapper.valueToTree(a.notEquals()));
+                }
+                if (a.contains() != null) {
+                    n.set("contains", objectMapper.valueToTree(a.contains()));
+                }
+                if (a.regex() != null) {
+                    n.put("regex", a.regex());
+                }
+                if (a.gt() != null) {
+                    n.put("gt", a.gt());
+                }
+                if (a.gte() != null) {
+                    n.put("gte", a.gte());
+                }
+                if (a.lt() != null) {
+                    n.put("lt", a.lt());
+                }
+                if (a.lte() != null) {
+                    n.put("lte", a.lte());
                 }
                 arr.add(n);
             }

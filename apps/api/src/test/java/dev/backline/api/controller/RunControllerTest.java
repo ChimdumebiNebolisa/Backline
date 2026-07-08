@@ -102,12 +102,33 @@ class RunControllerTest extends PostgresTestBase {
         assertThat(run2.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(objectMapper.readTree(run2.getBody()).path("data").path("id").asText()).isEqualTo(runId);
 
+        String runBody2 = objectMapper.writeValueAsString(Map.of(
+                "projectSlug",
+                slug,
+                "environment",
+                "local",
+                "configHash",
+                "abc",
+                "idempotencyKey",
+                "idem-2",
+                "source",
+                "test"));
+        restTemplate.postForEntity("/api/runs", new HttpEntity<>(runBody2, headers), String.class);
+
         ResponseEntity<String> list = restTemplate.getForEntity(
                 "/api/runs?projectSlug=" + slug + "&status=QUEUED&limit=10&offset=0", String.class);
         assertThat(list.getStatusCode()).isEqualTo(HttpStatus.OK);
         JsonNode listData = objectMapper.readTree(list.getBody()).path("data");
         assertThat(listData.isArray()).isTrue();
         assertThat(listData.size()).isGreaterThanOrEqualTo(1);
+
+        ResponseEntity<String> listOffset = restTemplate.getForEntity(
+                "/api/runs?projectSlug=" + slug + "&status=QUEUED&limit=1&offset=1", String.class);
+        var firstRunPage = objectMapper.readTree(list.getBody()).path("data");
+        var offsetPage = objectMapper.readTree(listOffset.getBody()).path("data");
+        if (firstRunPage.size() > 1 && offsetPage.size() > 0) {
+            assertThat(firstRunPage.get(0).path("id").asText()).isNotEqualTo(offsetPage.get(0).path("id").asText());
+        }
 
         ResponseEntity<String> one = restTemplate.getForEntity("/api/runs/" + runId, String.class);
         assertThat(one.getStatusCode()).isEqualTo(HttpStatus.OK);
@@ -121,6 +142,16 @@ class RunControllerTest extends PostgresTestBase {
         ResponseEntity<String> diff = restTemplate.getForEntity("/api/runs/" + runId + "/diff", String.class);
         assertThat(diff.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(objectMapper.readTree(diff.getBody()).path("data").path("entries").isArray()).isTrue();
+
+        ResponseEntity<String> diffLastPassed =
+                restTemplate.getForEntity("/api/runs/" + runId + "/diff?baseline=LAST_PASSED", String.class);
+        assertThat(diffLastPassed.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        ResponseEntity<String> diffMissingFixed =
+                restTemplate.getForEntity("/api/runs/" + runId + "/diff?baseline=FIXED_RUN", String.class);
+        assertThat(diffMissingFixed.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(objectMapper.readTree(diffMissingFixed.getBody()).path("error").path("field").asText())
+                .isEqualTo("fixedRunId");
     }
 
     void seedCompletedRunForDiff(String slug, UUID checkUuid, UUID currentRunId) {
