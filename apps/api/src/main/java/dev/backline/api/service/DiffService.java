@@ -1,6 +1,8 @@
 package dev.backline.api.service;
 
 import dev.backline.api.exception.NotFoundException;
+import dev.backline.api.exception.ValidationFailedException;
+import dev.backline.core.api.dto.DiffBaselineStrategy;
 import dev.backline.api.persistence.entity.CheckResultEntity;
 import dev.backline.api.persistence.entity.RunEntity;
 import dev.backline.api.persistence.repository.CheckResultRepository;
@@ -44,22 +46,21 @@ public class DiffService {
 
     @Transactional(readOnly = true)
     public RunDiffDto computeDiff(UUID runId) {
+        return computeDiff(runId, DiffBaselineStrategy.PREVIOUS_COMPLETED, null);
+    }
+
+    @Transactional(readOnly = true)
+    public RunDiffDto computeDiff(UUID runId, DiffBaselineStrategy strategy, UUID fixedRunId) {
         RunEntity current = runRepository
                 .findById(runId)
                 .orElseThrow(() -> new NotFoundException("run not found", "runId"));
         List<CheckResultEntity> currentResults = checkResultsOrderedByKey(runId);
         Map<String, CheckResultEntity> currentByKey = indexByKey(currentResults);
 
-        var previousRuns =
-                runRepository.findPreviousCompletedRun(
-                        current.getProjectId(),
-                        current.getEnvironment(),
-                        current.getId(),
-                        PageRequest.of(0, 1));
-        if (previousRuns.isEmpty()) {
+        RunEntity previous = resolveBaseline(current, strategy, fixedRunId);
+        if (previous == null) {
             return new RunDiffDto(current.getId().toString(), null, entriesNoPrevious(currentResults));
         }
-        RunEntity previous = previousRuns.getFirst();
         List<CheckResultEntity> previousResults = checkResultsOrderedByKey(previous.getId());
         Map<String, CheckResultEntity> previousByKey = indexByKey(previousResults);
 
@@ -75,6 +76,47 @@ public class DiffService {
         }
         entries.sort(Comparator.comparing(RunDiffEntry::checkKey));
         return new RunDiffDto(current.getId().toString(), previous.getId().toString(), entries);
+    }
+
+    private RunEntity resolveBaseline(RunEntity current, DiffBaselineStrategy strategy, UUID fixedRunId) {
+        DiffBaselineStrategy chosen = strategy == null ? DiffBaselineStrategy.PREVIOUS_COMPLETED : strategy;
+        return switch (chosen) {
+            case PREVIOUS_COMPLETED -> runRepository.findPreviousCompletedRun(
+                            current.getProjectId(),
+                            current.getEnvironment(),
+                            current.getId(),
+                            PageRequest.of(0, 1))
+                    .stream()
+                    .findFirst()
+                    .orElse(null);
+            case LAST_PASSED -> runRepository.findPreviousPassedRun(
+                            current.getProjectId(),
+                            current.getEnvironment(),
+                            current.getId(),
+                            PageRequest.of(0, 1))
+                    .stream()
+                    .findFirst()
+                    .orElse(null);
+            case FIXED_RUN -> resolveFixedBaseline(current, fixedRunId);
+        };
+    }
+
+    private RunEntity resolveFixedBaseline(RunEntity current, UUID fixedRunId) {
+        if (fixedRunId == null) {
+            throw new ValidationFailedException("fixedRunId is required for FIXED_RUN baseline", "fixedRunId");
+        }
+        RunEntity fixed = runRepository.findById(fixedRunId)
+                .orElseThrow(() -> new NotFoundException("fixed baseline run not found", "fixedRunId"));
+        if (fixed.getId().equals(current.getId())) {
+            throw new ValidationFailedException("fixed baseline run must differ from current run", "fixedRunId");
+        }
+        if (!fixed.getProjectId().equals(current.getProjectId())) {
+            throw new ValidationFailedException("fixed baseline run must belong to same project", "fixedRunId");
+        }
+        if (!Objects.equals(fixed.getEnvironment(), current.getEnvironment())) {
+            throw new ValidationFailedException("fixed baseline run must use same environment", "fixedRunId");
+        }
+        return fixed;
     }
 
     private List<CheckResultEntity> checkResultsOrderedByKey(UUID runId) {

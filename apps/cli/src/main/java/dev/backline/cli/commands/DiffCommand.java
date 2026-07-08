@@ -3,10 +3,12 @@ package dev.backline.cli.commands;
 import dev.backline.cli.Backline;
 import dev.backline.cli.client.ApiClientException;
 import dev.backline.cli.client.BacklineApiClient;
+import dev.backline.core.api.dto.DiffBaselineStrategy;
 import dev.backline.core.api.dto.RunDiffDto;
 import dev.backline.core.api.dto.RunDiffChangeType;
 import dev.backline.core.api.dto.RunDiffEntry;
 import picocli.CommandLine.Command;
+import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 import picocli.CommandLine.ParentCommand;
 
@@ -28,12 +30,27 @@ public class DiffCommand implements Callable<Integer> {
     @Parameters(index = "0", description = "Run id", arity = "1")
     private UUID runId;
 
+    @Option(
+            names = {"--baseline"},
+            description = "Diff baseline strategy: ${COMPLETION-CANDIDATES}",
+            defaultValue = "PREVIOUS_COMPLETED")
+    private DiffBaselineStrategy baseline;
+
+    @Option(
+            names = {"--fixed-run-id"},
+            description = "Required when --baseline=FIXED_RUN")
+    private UUID fixedRunId;
+
     @Override
     public Integer call() throws Exception {
         BacklineApiClient client = new BacklineApiClient(parent.apiUrl());
+        if (baseline == DiffBaselineStrategy.FIXED_RUN && fixedRunId == null) {
+            System.err.println("--fixed-run-id is required when --baseline=FIXED_RUN");
+            return 2;
+        }
         RunDiffDto diff;
         try {
-            diff = client.getRunDiff(runId);
+            diff = client.getRunDiff(runId, baseline, fixedRunId);
         } catch (ApiClientException e) {
             return CliApiErrors.print(parent.apiUrl(), e);
         } catch (InterruptedException e) {
@@ -46,7 +63,8 @@ public class DiffCommand implements Callable<Integer> {
         for (RunDiffEntry e : entries) {
             grouped.computeIfAbsent(e.changeType(), k -> new ArrayList<>()).add(e);
         }
-        System.out.println("diff for run " + diff.runId() + " vs " + diff.previousRunId());
+        System.out.println("diff for run " + diff.runId() + " vs " + diff.previousRunId()
+                + " (baseline=" + baseline + ")");
         for (var type : RunDiffChangeType.values()) {
             List<RunDiffEntry> list = grouped.get(type);
             if (list == null || list.isEmpty()) {

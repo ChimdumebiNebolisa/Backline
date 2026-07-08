@@ -13,6 +13,7 @@ import dev.backline.core.api.dto.CheckDefinitionDto;
 import dev.backline.core.api.dto.CheckSyncRequest;
 import dev.backline.core.api.dto.CreateProjectRequest;
 import dev.backline.core.api.dto.CreateRunRequest;
+import dev.backline.core.api.dto.DiffBaselineStrategy;
 import dev.backline.core.api.dto.RunDiffDto;
 import dev.backline.core.error.ErrorCode;
 import dev.backline.core.run.RunStatus;
@@ -58,10 +59,25 @@ public class RunCommand implements Callable<Integer> {
     @Option(names = {"--junit-output"}, description = "Optional JUnit XML output path for policy enforcement")
     private Path junitOutput;
 
+    @Option(
+            names = {"--baseline"},
+            description = "Diff baseline strategy used for policy evaluation: ${COMPLETION-CANDIDATES}",
+            defaultValue = "PREVIOUS_COMPLETED")
+    private DiffBaselineStrategy baseline;
+
+    @Option(
+            names = {"--baseline-run-id"},
+            description = "Required when --baseline=FIXED_RUN")
+    private UUID baselineRunId;
+
     @Override
     public Integer call() throws Exception {
         if (!noWait && timeoutSeconds <= 0) {
             System.err.println("--timeout-seconds must be greater than zero.");
+            return 2;
+        }
+        if (baseline == DiffBaselineStrategy.FIXED_RUN && baselineRunId == null) {
+            System.err.println("--baseline-run-id is required when --baseline=FIXED_RUN");
             return 2;
         }
 
@@ -173,7 +189,7 @@ public class RunCommand implements Callable<Integer> {
             throws java.io.IOException, InterruptedException {
         RunPolicy policy = configuredPolicy == null ? RunPolicyEvaluator.DEFAULT_POLICY : configuredPolicy;
         var results = client.getRunResults(runId);
-        RunDiffDto diff = client.getRunDiff(runId);
+        RunDiffDto diff = client.getRunDiff(runId, baseline, baselineRunId);
         PolicyEvaluation evaluation = RunPolicyEvaluator.evaluate(policy, results, diff);
         System.out.println("policy: newly_failing=" + evaluation.newlyFailingCount()
                 + ", errored_checks=" + evaluation.erroredChecksCount()

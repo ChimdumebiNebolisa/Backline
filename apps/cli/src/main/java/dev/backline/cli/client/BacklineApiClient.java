@@ -15,6 +15,7 @@ import dev.backline.core.api.dto.CheckResultDto;
 import dev.backline.core.api.dto.CheckSyncRequest;
 import dev.backline.core.api.dto.CreateProjectRequest;
 import dev.backline.core.api.dto.CreateRunRequest;
+import dev.backline.core.api.dto.DiffBaselineStrategy;
 import dev.backline.core.api.dto.ProjectDto;
 import dev.backline.core.api.dto.ProjectSummaryDto;
 import dev.backline.core.api.dto.RunDiffDto;
@@ -158,8 +159,21 @@ public final class BacklineApiClient {
     }
 
     public RunDiffDto getRunDiff(UUID id) throws IOException, InterruptedException {
+        return getRunDiff(id, DiffBaselineStrategy.PREVIOUS_COMPLETED, null);
+    }
+
+    public RunDiffDto getRunDiff(UUID id, DiffBaselineStrategy baseline, UUID fixedRunId)
+            throws IOException, InterruptedException {
+        StringBuilder uri = new StringBuilder(baseUrl)
+                .append("/api/runs/")
+                .append(id)
+                .append("/diff?baseline=")
+                .append(urlEncode((baseline == null ? DiffBaselineStrategy.PREVIOUS_COMPLETED : baseline).name()));
+        if (fixedRunId != null) {
+            uri.append("&fixedRunId=").append(urlEncode(fixedRunId.toString()));
+        }
         HttpRequest httpRequest = HttpRequest.newBuilder()
-                .uri(URI.create(baseUrl + "/api/runs/" + id + "/diff"))
+                .uri(URI.create(uri.toString()))
                 .timeout(REQUEST_TIMEOUT)
                 .GET()
                 .build();
