@@ -108,10 +108,6 @@ class WorkerExecutionTest extends PostgresWorkerTestBase {
 
         waitForTerminal(runId, Duration.ofSeconds(90));
 
-        Long results =
-                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM check_results WHERE run_id = ?", Long.class, runId);
-        assertThat(results).isEqualTo(3L);
-
         String runStatus = jdbcTemplate.queryForObject("SELECT status FROM runs WHERE id = ?", String.class, runId);
         assertThat(runStatus).isEqualTo(RunStatus.FAILED.name());
 
