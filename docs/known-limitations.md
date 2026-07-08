@@ -7,7 +7,7 @@ Backline is intentionally scoped as a **local-first regression ledger**, not a f
 - **JSONPath assertions**: supported operators are intentionally limited to deterministic single-operator rules (`equals`, `exists`, `not_equals`, `contains`, `regex`, `gt`, `gte`, `lt`, `lte`).
 - **Response previews** are bounded (for example, **4096 bytes**) to avoid storing large payloads by default.
 - **Worker retries** apply to **runtime / worker errors** only, not to failed HTTP assertions (a failed assertion is a failed check, not a retryable infrastructure fault).
-- **Markdown reports only** in the must-have scope; there is no built-in HTML report in this build.
+- **Markdown reports** and optional **JSON report artifacts** (`backline report --json-output`).
 - **Schema migrations** are owned by the **API** process (Flyway on startup). The worker assumes the database schema matches the migrations shipped with the API.
 - **Sample API** ships **intentional failures** and odd shapes for demos; do not treat it as a production service.
 - **Diff baseline**: comparison uses the most recent **completed** run with status **PASSED** or **FAILED** for the same project and environment; **CANCELLED** and **ERROR** runs are skipped as previous baselines.

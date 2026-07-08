@@ -186,6 +186,8 @@ Copy/paste **curl** samples: [docs/api-examples.md](docs/api-examples.md).
 
 CI integration and policy gating details: [docs/ci-integration.md](docs/ci-integration.md).
 Quality and runtime hardening checklist: [docs/audit-playbook.md](docs/audit-playbook.md).
+Cross-module contracts: [docs/contracts.md](docs/contracts.md).
+Operations runbook: [docs/runbook.md](docs/runbook.md).
 
 Quick audit command:
 
