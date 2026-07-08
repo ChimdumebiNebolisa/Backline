@@ -60,6 +60,25 @@ backline diff <runId>
 backline report <runId>
 ```
 
+To emit a machine-readable artifact for CI or post-processing:
+
+```bash
+backline report <runId> --json-output ./build/backline-report.json
+```
+
+You can choose the diff baseline strategy:
+
+```bash
+backline diff <runId> --baseline LAST_PASSED
+backline diff <runId> --baseline FIXED_RUN --fixed-run-id <baselineRunId>
+```
+
+For policy-enforced runs, the same baseline options apply:
+
+```bash
+backline run --enforce-policy --baseline LAST_PASSED
+```
+
 ### Optional CI policy enforcement
 
 Backline can evaluate run outcomes against policy thresholds in `backline.yml`:
@@ -164,6 +183,8 @@ docs/           API examples, limitations, demo script
 - **OpenAPI JSON:** `http://localhost:8080/v3/api-docs`
 
 Copy/paste **curl** samples: [docs/api-examples.md](docs/api-examples.md).
+
+CI integration and policy gating details: [docs/ci-integration.md](docs/ci-integration.md).
 
 ## Demo path (detailed)
 
