@@ -7,4 +7,5 @@ dependencies {
 
     testImplementation "org.junit.jupiter:junit-jupiter:${junitJupiterVersion}"
     testImplementation "org.assertj:assertj-core:${assertjVersion}"
+    testImplementation "com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}"
 }

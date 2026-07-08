@@ -51,6 +51,7 @@ public final class AssertionDto {
         this.lte = lte;
     }
 
+    @JsonProperty("path")
     public String path() {
         return path;
     }
@@ -60,6 +61,7 @@ public final class AssertionDto {
         return equalsValue;
     }
 
+    @JsonProperty("exists")
     public Boolean exists() {
         return exists;
     }
@@ -69,26 +71,32 @@ public final class AssertionDto {
         return notEquals;
     }
 
+    @JsonProperty("contains")
     public Object contains() {
         return contains;
     }
 
+    @JsonProperty("regex")
     public String regex() {
         return regex;
     }
 
+    @JsonProperty("gt")
     public Double gt() {
         return gt;
     }
 
+    @JsonProperty("gte")
     public Double gte() {
         return gte;
     }
 
+    @JsonProperty("lt")
     public Double lt() {
         return lt;
     }
 
+    @JsonProperty("lte")
     public Double lte() {
         return lte;
     }
