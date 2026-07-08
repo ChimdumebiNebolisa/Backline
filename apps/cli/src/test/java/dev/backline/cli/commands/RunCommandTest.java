@@ -107,6 +107,34 @@ class RunCommandTest {
         }
     }
 
+    @Test
+    void runAllowsFixedBaselineFlagWithoutPolicyEnforcement() throws Exception {
+        HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
+        server.createContext("/", RunCommandTest::handle);
+        server.setExecutor(null);
+        server.start();
+        try {
+            String base = "http://127.0.0.1:" + server.getAddress().getPort();
+            String yaml =
+                    """
+                    project: demo
+                    environment: local
+                    checks:
+                      - key: k
+                        name: n
+                        method: GET
+                        url: http://localhost:8081/health
+                        expected_status: 200
+                    """;
+            Files.writeString(Path.of("backline.yml"), yaml);
+            int code = new CommandLine(new Backline())
+                    .execute("--api-url", base, "run", "-f", "backline.yml", "--no-wait", "--baseline", "FIXED_RUN");
+            assertThat(code).isZero();
+        } finally {
+            server.stop(0);
+        }
+    }
+
     private static void handle(HttpExchange exchange) throws IOException {
         try (var in = exchange.getRequestBody()) {
             in.readAllBytes();

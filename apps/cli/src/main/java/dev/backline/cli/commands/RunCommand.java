@@ -76,7 +76,7 @@ public class RunCommand implements Callable<Integer> {
             System.err.println("--timeout-seconds must be greater than zero.");
             return 2;
         }
-        if (baseline == DiffBaselineStrategy.FIXED_RUN && baselineRunId == null) {
+        if (enforcePolicy && baseline == DiffBaselineStrategy.FIXED_RUN && baselineRunId == null) {
             System.err.println("--baseline-run-id is required when --baseline=FIXED_RUN");
             return 2;
         }
