@@ -34,4 +34,10 @@ if grep_repo 'Runtime\.getRuntime\(\)\.exec|ProcessBuilder' libs/config/src/main
   exit 1
 fi
 
+echo "==> Guardrail: CLI must not use @SpringBootApplication"
+if grep_repo '@SpringBootApplication' apps/cli/src/main/java/dev/backline/cli/Backline.java apps/cli/src/main/java/dev/backline/cli/commands | grep -q .; then
+  echo "FAIL: CLI main or commands use @SpringBootApplication"
+  exit 1
+fi
+
 echo "Guardrail checks passed."

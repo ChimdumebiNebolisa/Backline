@@ -29,4 +29,20 @@ class ArchitectureTest {
             .resideInAPackage("dev.backline.worker..")
             .should()
             .beAnnotatedWith("org.springframework.web.bind.annotation.RestController");
+
+    @ArchTest
+    static final ArchRule controllersMustNotDependOnRepositories = noClasses()
+            .that()
+            .resideInAPackage("dev.backline.api.controller..")
+            .should()
+            .dependOnClassesThat()
+            .resideInAPackage("..repository..");
+
+    @ArchTest
+    static final ArchRule workerMustNotDependOnApiWebLayer = noClasses()
+            .that()
+            .resideInAPackage("dev.backline.worker..")
+            .should()
+            .dependOnClassesThat()
+            .resideInAnyPackage("dev.backline.api.controller..", "org.springframework.web.servlet..");
 }

@@ -6,6 +6,7 @@ import dev.backline.cli.policy.JunitPolicyReportWriter;
 import dev.backline.cli.policy.PolicyEvaluation;
 import dev.backline.cli.policy.RunPolicyEvaluator;
 import dev.backline.cli.policy.RunPolicyProfile;
+import dev.backline.cli.policy.RunPolicyProfileConverter;
 import picocli.CommandLine;
 import dev.backline.config.ConfigParseException;
 import dev.backline.config.ConfigParser;

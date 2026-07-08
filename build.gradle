@@ -18,6 +18,7 @@ allprojects {
         springdocOpenapiVersion = '2.6.0'
         junitJupiterVersion = '5.10.2'
         assertjVersion = '3.26.3'
+        jqwikVersion = '1.8.5'
         jacksonVersion = '2.17.2'
         coverageMinimums = [
                 'apps:api'       : 0.28,

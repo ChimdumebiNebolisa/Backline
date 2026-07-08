@@ -9,4 +9,5 @@ dependencies {
 
     testImplementation "org.junit.jupiter:junit-jupiter:${junitJupiterVersion}"
     testImplementation "org.assertj:assertj-core:${assertjVersion}"
+    testImplementation "net.jqwik:jqwik:${jqwikVersion}"
 }
