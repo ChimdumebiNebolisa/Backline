@@ -4,6 +4,7 @@ import dev.backline.cli.launch.JarResolution;
 import picocli.CommandLine.Command;
 
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 
@@ -24,7 +25,7 @@ public class SampleServeCommand implements Callable<Integer> {
             return 1;
         }
         System.out.println("Sample API starting on http://localhost:8081");
-        ProcessBuilder pb = new ProcessBuilder("java", "-jar", jar.get().toString());
+        ProcessBuilder pb = new ProcessBuilder(buildCommand(jar.get()));
         pb.inheritIO();
         Process process = pb.start();
         Thread hook = new Thread(() -> {
@@ -40,5 +41,9 @@ public class SampleServeCommand implements Callable<Integer> {
             // JVM is shutting down
         }
         return code;
+    }
+
+    static List<String> buildCommand(Path sampleApiJar) {
+        return List.of("java", "-jar", sampleApiJar.toString());
     }
 }

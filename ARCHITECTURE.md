@@ -540,11 +540,14 @@ Contains Markdown report generation from API response data.
 
 Transaction:
 
-1. Upsert project.
-2. Sync check definitions.
-3. Create run with `QUEUED` status.
-4. Write run event.
-5. Commit.
+1. Require existing project by slug.
+2. Create run with `QUEUED` status.
+3. Write run event.
+4. Commit.
+
+Client orchestration:
+
+- CLI performs project creation and check sync in separate API calls before run submission.
 
 ### Worker claim
 
@@ -560,12 +563,12 @@ Transaction:
 
 Transaction:
 
-1. Insert all check results.
+1. Insert all check results for the claimed run.
 2. Compute final run status.
 3. Mark run as `PASSED`, `FAILED`, or `ERROR`.
 4. Set `finished_at`.
 5. Write run event.
-6. Commit.
+6. Commit atomically.
 
 ## Rejected alternatives
 
