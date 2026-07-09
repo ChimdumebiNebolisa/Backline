@@ -28,9 +28,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 @Service
 public class CheckSyncService {
+
+    private static final Pattern CHECK_KEY_PATTERN = Pattern.compile("[a-z0-9][a-z0-9-]{0,119}");
 
     private final CheckRepository checkRepository;
     private final ProjectService projectService;
@@ -93,6 +96,10 @@ public class CheckSyncService {
         for (CheckDefinitionDto c : req.checks()) {
             if (c.key() == null || c.key().isBlank()) {
                 throw new ValidationFailedException("check key is required", "checks");
+            }
+            if (!CHECK_KEY_PATTERN.matcher(c.key()).matches()) {
+                throw new ValidationFailedException(
+                        "check key must match [a-z0-9][a-z0-9-]{0,119}", "checks");
             }
             if (!keys.add(c.key())) {
                 throw new ValidationFailedException("duplicate check key: " + c.key(), "checks");
