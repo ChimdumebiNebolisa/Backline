@@ -44,6 +44,26 @@ class CheckSyncServiceTest {
                 .hasMessageContaining("assertion must set at least one of equals or exists");
     }
 
+    @Test
+    void syncRejectsMalformedCheckKey() {
+        CheckSyncService service = serviceWithWritableRepository();
+        CheckSyncRequest request = new CheckSyncRequest(
+                "sample",
+                "Sample",
+                List.of(new CheckDefinitionDto(
+                        "Bad Key",
+                        "Health",
+                        HttpMethod.GET,
+                        "http://localhost:8081/health",
+                        200,
+                        null,
+                        null)));
+
+        assertThatThrownBy(() -> service.sync(request))
+                .isInstanceOf(ValidationFailedException.class)
+                .hasMessageContaining("check key must match [a-z0-9][a-z0-9-]{0,119}");
+    }
+
     private static CheckSyncService serviceWithWritableRepository() {
         CheckRepository checkRepository = mock(CheckRepository.class);
         ProjectService projectService = mock(ProjectService.class);
