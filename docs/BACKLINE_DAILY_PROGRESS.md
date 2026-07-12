@@ -13,10 +13,11 @@ Build and verify the isolated public landing site, reconcile the roadmap/progres
 ## One-shot commit checklist
 
 - [x] Define one-shot scope, commit slices, acceptance criteria, and final report requirements.
-- [ ] Scaffold the independent `site/` project.
-- [ ] Implement the verified landing-page narrative and visual system.
-- [ ] Add content, browser, accessibility, and reduced-motion checks.
-- [ ] Add site-only CI, reconcile documentation, push, and merge to `main`.
+- [x] Scaffold the independent `site/` project.
+- [x] Implement the verified landing-page narrative and visual system.
+- [x] Add content, browser, accessibility, and reduced-motion checks.
+- [x] Add site-only CI and reconcile documentation.
+- [ ] Push the final documentation/CI commit and merge PR #13 to `main`.
 
 The historical baseline checklist below remains evidence of the completed inventory work; it is not a daily execution gate for this task.
 
@@ -87,7 +88,7 @@ Ran the root Gradle verification path and recorded the current Java baseline:
 
 ## Current in-progress work unit
 
-None. Phase 1.2 is complete. Next: Phase 1.3, run and record the full-stack E2E demonstration.
+One-shot implementation task: final site-only CI verification, backend independence check, PR update, and merge to `main`. The historical Phase 1 checklist remains below as baseline evidence, not as a new daily stop condition.
 
 ## Deferred items
 
@@ -100,7 +101,7 @@ None identified for Phase 1.2.
 
 ## Current blast-radius note
 
-Phase 1.2 verified Gradle root `check` -> subproject tests -> JaCoCo verification -> guardrail script -> contract-drift script. The baseline exposed two Windows-portability defects that were fixed in scope: shell-script LF checkout policy and one platform-neutral CLI test assertion. Java production source, Gradle configuration, migrations, Docker configuration, website files, and runtime behavior remain unchanged.
+The one-shot site implementation verified the existing Gradle/site boundary and added no Java runtime coupling. Historical Phase 1.2 evidence remains recorded below.
 
 ## Commands executed
 
@@ -138,34 +139,43 @@ Phase 1.2 verified Gradle root `check` -> subproject tests -> JaCoCo verificatio
 - Root verification included `checkContractDrift`, `checkGuardrails`, Java compilation, all subproject tests, JaCoCo reports, and coverage verification.
 - Warning: Gradle reported deprecated features that will be incompatible with Gradle 9.0. This was not investigated in Phase 1.2 because the selected unit was baseline verification.
 
+## One-shot implementation evidence
+
+- `site/` is a standalone Vite + TypeScript static site with its own package manifest, lockfile, source, tests, build, browser checks, and README.
+- The landing page uses CLI, API, worker, PostgreSQL, sample API, report, policy, status, exit-code, and limitation vocabulary verified in repository code and docs.
+- Representative ledger rows and terminal output are labeled as representative; no hosted dashboard or monitoring claim was added.
+- `.github/workflows/site-ci.yml` runs only for `site/**` changes and verifies the site without backend services.
+- `README.md` links to the site documentation without duplicating the product README.
+
 ## Architectural decisions
 
 - Treat the existing Java module graph as mature baseline state; do not redesign it without a confirmed defect.
 - Keep the future public website outside `settings.gradle` and all Java module build files.
-- Use one roadmap work unit per automation run; this run created only the inventory and durable progress record.
+- Use one implementation task with small independently verified commits; the historical daily roadmap is retained only as baseline evidence.
 - Keep Bash-based verification scripts pinned to LF endings through `.gitattributes`; otherwise Windows checkouts can break root Gradle verification before tests run.
 
 ## Website isolation evidence
 
-- `site/` is absent.
-- `settings.gradle` contains only the four application and four library modules listed above.
-- No Gradle-to-Node or site build coupling was introduced.
-- Phase 1.2 introduced no `site/` directory, no Node tooling, and no Gradle-to-website dependency.
+- `site/` is outside `settings.gradle` and all Java module build files.
+- `site/package.json` and `site/package-lock.json` define the only site dependency graph.
+- Site build and browser tests run without PostgreSQL, Spring Boot, the API, the worker, or Gradle.
+- A direct search of `settings.gradle` and `build.gradle` found no `site`, `npm`, or `node` coupling.
 
 ## Backend systems affected
 
-Phase 1.1 affected documentation only. Phase 1.2 affected one CLI test assertion and repository shell-script checkout attributes; production Java code, API, worker, CLI runtime behavior, database, migrations, reports, metrics, packaging, and Docker configuration were not changed.
+The one-shot implementation affected `site/`, site-only CI, root README links, and progress/task documentation. Production Java source, API, worker, CLI runtime behavior, database, migrations, reports, metrics, packaging, and Docker configuration were not changed.
 
 ## Public product claims verified
 
-No new public website claims were introduced. Repository inventory claims were verified directly from checked-in configuration and files. The only product behavior touched by Phase 1.2 tests remains the verified sample API launch command shape: `java -jar <sample-api-jar>`.
+Public site claims were checked against `apps/cli`, `apps/api`, `apps/worker`, `libs/executor`, `libs/reporting`, `README.md`, `docs/ci-integration.md`, `docs/runbook.md`, `docs/known-limitations.md`, and `examples/sample-api/backline.yml`. No customers, usage numbers, hosted-service behavior, dashboard functionality, or unsupported integrations are claimed.
 
 ## Known environment or platform limitations
 
 - `$CODEX_HOME` was not set in the PowerShell process; automation memory is stored under the resolved local Codex home path instead.
-- Testcontainers, Docker Compose runtime, E2E, browser, and performance behavior were not exercised in this inventory-only run.
-- GitHub branch-protection and remote CI state were not needed for this local documentation work unit and remain unverified.
+- Local site browser verification uses installed Chromium and passed. The site CI workflow will install Chromium with Ubuntu dependencies.
+- GitHub branch-protection settings were not required for the local implementation; PR #13 is the remote merge gate.
 - Docker/Testcontainers-backed API and worker tests skipped locally during Phase 1.2; this shell did not prove Docker-backed integration behavior. Full E2E remains Phase 1.3.
+- `./gradlew.bat check` could not run in this PowerShell session because the existing Gradle guardrail task invokes `/bin/bash`, unavailable through the local WSL bridge. `./gradlew.bat clean test` timed out while waiting on the local Docker/Testcontainers environment. The previously recorded `./gradlew.bat clean check` exit 0 and GitHub Ubuntu checks remain the authoritative backend evidence.
 - Gradle 9 compatibility remains unverified because the current wrapper is Gradle 8.10.2 and reports deprecation warnings.
 
 ## GitHub actions taken
@@ -175,21 +185,21 @@ No new public website claims were introduced. Repository inventory claims were v
 - Push: `codex/daily-roadmap-inventory` pushed to `origin`.
 - Pull request: #13, `Establish daily roadmap inventory`.
 - Phase 1.2 commit: `952c8d3` (`test: record Gradle baseline verification`) pushed to the existing PR branch.
-- Merge: none.
+- One-shot commits pushed to the existing PR branch: `3990c7f`, `3b2041e`, `d152ada`, `5f0d80f`, and `a103dea`.
+- PR #13 remains the merge target; final CI/documentation commit and merge are pending.
 
 ## Deployment actions taken
 
-- Vercel project: none.
+- Vercel project: none; deployment was explicitly deferred because no canonical public host was selected.
 - Deployment URL: none.
 - Production status: not deployed; deployment is not relevant to Phase 1.1 or Phase 1.2.
 - Rollback notes: not applicable.
 
 ## Blast radius
 
-- Website source/build/CI: unaffected.
-- Gradle configuration, API, worker, CLI runtime, database, migrations, reports, metrics, and packaging: unaffected.
-- CLI tests: one platform-neutral assertion fix.
-- Repository checkout policy: `.gitattributes` added for shell-script LF endings.
-- Documentation: updates this progress record.
-- GitHub and deployed site state: unaffected at the time of this record.
+- Website source/build/CI: added under `site/` and `.github/workflows/site-ci.yml`.
+- Gradle configuration, API, worker, CLI runtime, database, migrations, reports, metrics, and packaging: unaffected by the one-shot site implementation.
+- Documentation: added the one-shot task contract, site README, root README site link, and progress evidence.
+- GitHub: five implementation commits pushed to PR #13; merge remains pending final commit checks.
+- Deployed site state: none; deployment remains explicitly deferred.
 - Website isolation remains intact.

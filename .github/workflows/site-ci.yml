@@ -1,0 +1,50 @@
+name: backline-site-ci
+
+on:
+  pull_request:
+    paths:
+      - 'site/**'
+      - '.github/workflows/site-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - '.github/workflows/site-ci.yml'
+
+jobs:
+  verify-site:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: Install site dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Content tests
+        run: npm test
+
+      - name: Build static site
+        run: npm run build
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser smoke tests
+        run: npm run browser:test

@@ -189,6 +189,20 @@ Quality and runtime hardening checklist: [docs/audit-playbook.md](docs/audit-pla
 Cross-module contracts: [docs/contracts.md](docs/contracts.md).
 Operations runbook: [docs/runbook.md](docs/runbook.md).
 
+## Public site
+
+The standalone landing page lives in [`site/`](site/README.md). It is a Vite/TypeScript static site with its own lockfile and CI; it is not a Gradle module, does not render a dashboard, and does not require the API, worker, or PostgreSQL to build.
+
+```bash
+cd site
+npm ci
+npm run typecheck
+npm run lint
+npm test
+npm run build
+npm run browser:test
+```
+
 Quick audit command:
 
 ```bash
