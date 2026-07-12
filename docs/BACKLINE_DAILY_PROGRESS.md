@@ -2,9 +2,23 @@
 
 Last updated: 2026-07-12 (America/Chicago)
 
-## Current roadmap phase
+## Execution mode
 
-Phase 1: Establish verified baselines.
+One-shot implementation task: execute the remaining verified roadmap scope in one branch with small, independently verified commits. The operating contract is [BACKLINE_ONE_SHOT_IMPLEMENTATION.md](BACKLINE_ONE_SHOT_IMPLEMENTATION.md).
+
+## Current task
+
+Build and verify the isolated public landing site, reconcile the roadmap/progress records, and preserve the already-implemented backend quality work.
+
+## One-shot commit checklist
+
+- [x] Define one-shot scope, commit slices, acceptance criteria, and final report requirements.
+- [ ] Scaffold the independent `site/` project.
+- [ ] Implement the verified landing-page narrative and visual system.
+- [ ] Add content, browser, accessibility, and reduced-motion checks.
+- [ ] Add site-only CI, reconcile documentation, push, and merge to `main`.
+
+The historical baseline checklist below remains evidence of the completed inventory work; it is not a daily execution gate for this task.
 
 ## Ordered work-unit checklist
 
