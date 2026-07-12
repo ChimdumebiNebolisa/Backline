@@ -63,7 +63,8 @@ Each commit must be independently reviewable, use a detailed body, and pass the 
 - Every command, state, exit code, architecture component, and limitation shown publicly is traceable to checked-in CLI code, tests, README, runbook, API examples, or the sample configuration.
 - Site verification and backend verification are recorded with exact commands and outcomes.
 - The branch contains small, detailed commits; each is pushed, the PR is updated, and the verified result is merged to `main`.
-- Deployment remains explicitly deferred unless a safe canonical host is already selected.
+- Deployment uses the selected Vercel project `backline-site` and the stable canonical URL `https://backline-site-xi.vercel.app`; subsequent releases must update this project instead of creating a new site.
+- The production alias is browser-verified at desktop and mobile sizes before delivery is reported complete.
 
 ## Required final report
 
