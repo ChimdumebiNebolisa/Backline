@@ -41,3 +41,7 @@ test('representative run output is labeled as representative', () => {
   assert.match(html, /representative output/);
   assert.match(html, /representative local history/);
 });
+
+test('visible copy avoids typographic dash clutter', () => {
+  assert.doesNotMatch(html, /[\u2014\u2013]/);
+});
