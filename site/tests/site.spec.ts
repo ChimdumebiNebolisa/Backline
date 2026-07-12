@@ -3,10 +3,10 @@ import { expect, test } from '@playwright/test';
 test('renders the landing page and primary paths on desktop', async ({ page }) => {
   await page.goto('/');
 
-  await expect(page).toHaveTitle('Backline — API regression history');
+  await expect(page).toHaveTitle('Backline | API regression history');
   await expect(page.getByRole('heading', { name: 'Regression history for APIs that change.' })).toBeVisible();
   await expect(page.getByRole('link', { name: /Start with the CLI/ })).toHaveAttribute('href', '#quick-start');
-  await expect(page.getByRole('link', { name: 'GitHub ↗' }).first()).toHaveAttribute(
+  await expect(page.getByRole('link', { name: 'GitHub' }).first()).toHaveAttribute(
     'href',
     'https://github.com/ChimdumebiNebolisa/Backline',
   );

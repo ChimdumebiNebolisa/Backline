@@ -30,3 +30,25 @@ document.addEventListener('keydown', (event) => {
 });
 
 window.matchMedia('(min-width: 760px)').addEventListener('change', closeMenu);
+
+const revealItems = document.querySelectorAll<HTMLElement>('[data-reveal]');
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const revealAll = (): void => {
+  revealItems.forEach((item) => item.classList.add('is-visible'));
+};
+
+if (reducedMotion || !('IntersectionObserver' in window)) {
+  revealAll();
+} else {
+  const observer = new IntersectionObserver((entries, currentObserver) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('is-visible');
+        currentObserver.unobserve(entry.target);
+      }
+    });
+  }, { rootMargin: '0px 0px -10% 0px', threshold: 0.12 });
+
+  revealItems.forEach((item) => observer.observe(item));
+  window.setTimeout(revealAll, 1400);
+}
