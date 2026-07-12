@@ -10,7 +10,8 @@ class SampleServeCommandTest {
 
     @Test
     void buildCommandUsesJavaJarInvocation() {
-        var cmd = SampleServeCommand.buildCommand(Path.of("/tmp/sample-api.jar"));
-        assertThat(cmd).containsExactly("java", "-jar", "/tmp/sample-api.jar");
+        var jar = Path.of("/tmp/sample-api.jar");
+        var cmd = SampleServeCommand.buildCommand(jar);
+        assertThat(cmd).containsExactly("java", "-jar", jar.toString());
     }
 }
