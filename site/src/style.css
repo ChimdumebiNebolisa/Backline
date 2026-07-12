@@ -1,0 +1,30 @@
+:root {
+  color: #e7e7e2;
+  background: #121313;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: #121313;
+}
+
+main {
+  margin: 0 auto;
+  max-width: 72rem;
+  padding: 6rem 1.5rem;
+}
+
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -5rem;
+  padding: 0.75rem 1rem;
+  color: #121313;
+  background: #c6f66a;
+}
+
+.skip-link:focus {
+  top: 1rem;
+}
