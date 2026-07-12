@@ -108,6 +108,8 @@ Phase 1.2 verified Gradle root `check` -> subproject tests -> JaCoCo verificatio
 | `.\gradlew.bat clean check` | 1 | After fixing shell line endings, Gradle reached Java tests and failed only `SampleServeCommandTest.buildCommandUsesJavaJarInvocation` due a Unix-specific path assertion on Windows. |
 | `.\gradlew.bat :apps:cli:test --tests dev.backline.cli.commands.SampleServeCommandTest` | 0 | Focused CLI test passed after asserting `jar.toString()` instead of a hard-coded Unix path. |
 | `.\gradlew.bat clean check` | 0 | Root verification passed: 61 actionable tasks, 60 executed, 1 up-to-date; 221 tests, 0 failures, 0 errors, 56 local Testcontainers skips; JaCoCo verification passed. |
+| `git commit -m "test: record Gradle baseline verification"` | 0 | Created commit `952c8d3` with the Phase 1.2 verification record and portability fixes. |
+| `git push` | 0 | Pushed `codex/daily-roadmap-inventory` from `61e1105` to `952c8d3`. |
 
 ## Verification results
 
@@ -158,6 +160,7 @@ No new public website claims were introduced. Repository inventory claims were v
 - Commit: `docs: establish daily roadmap inventory` (amended as the action record was finalized).
 - Push: `codex/daily-roadmap-inventory` pushed to `origin`.
 - Pull request: #13, `Establish daily roadmap inventory`.
+- Phase 1.2 commit: `952c8d3` (`test: record Gradle baseline verification`) pushed to the existing PR branch.
 - Merge: none.
 
 ## Deployment actions taken
