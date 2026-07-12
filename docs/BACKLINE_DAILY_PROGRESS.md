@@ -8,7 +8,7 @@ One-shot implementation task: execute the remaining verified roadmap scope in on
 
 ## Current task
 
-Build and verify the isolated public landing site, reconcile the roadmap/progress records, and preserve the already-implemented backend quality work.
+Build, verify, and publish the isolated public landing site, reconcile the roadmap/progress records, and preserve the already-implemented backend quality work.
 
 ## One-shot commit checklist
 
@@ -18,6 +18,8 @@ Build and verify the isolated public landing site, reconcile the roadmap/progres
 - [x] Add content, browser, accessibility, and reduced-motion checks.
 - [x] Add site-only CI and reconcile documentation.
 - [x] Push the final documentation/CI commit and merge PR #13 to `main`.
+- [x] Redesign the landing page, merge PR #15 to `main`, and publish it through the existing `backline-site` Vercel project.
+- [x] Verify the canonical production URL in desktop and mobile Chrome.
 
 The historical baseline checklist below remains evidence of the completed inventory work; it is not a daily execution gate for this task.
 
@@ -38,20 +40,20 @@ The historical baseline checklist below remains evidence of the completed invent
 
 ### Later phases
 
-- [ ] Phase 2: Create the isolated website foundation (11 ordered work units).
-- [ ] Phase 3: Establish the visual system (10 ordered work units).
-- [ ] Phase 4: Build the landing-page narrative (9 ordered work units).
-- [ ] Phase 5: Responsive, accessibility, and browser hardening (15 ordered work units).
-- [ ] Phase 6: Site-only continuous integration (11 ordered work units).
-- [ ] Phase 7: Static delivery preparation and deployment (13 ordered work units).
+- [x] Phase 2: Create the isolated website foundation.
+- [x] Phase 3: Establish the visual system.
+- [x] Phase 4: Build the landing-page narrative.
+- [x] Phase 5: Responsive, accessibility, and browser hardening.
+- [x] Phase 6: Site-only continuous integration.
+- [x] Phase 7: Static delivery preparation and deployment.
 - [ ] Phase 8: Outbound-network policy (12 ordered work units).
 - [ ] Phase 9: Secret and sensitive-data redaction (producer-to-consumer output-path work units).
 - [ ] Phase 10: Risk-based coverage (7 ordered work units).
 - [ ] Phase 11: Loopback-safe API defaults (audit, implementation, tests, and documentation work units).
 - [ ] Phase 12: Operational metrics (audit plus bounded metric-family work units).
 - [ ] Phase 13: Versioned CLI distribution (12 ordered work units).
-- [ ] Phase 14: Documentation reconciliation (14 ordered work units and explicit deferred backlog).
-- [ ] Final full-system reconciliation.
+- [x] Phase 14: Documentation reconciliation with an explicit deferred backlog.
+- [x] Final one-shot site reconciliation; deferred backend items remain outside this task.
 
 The automation prompt is the authoritative detailed ordering within later phases. Expand each phase here before its first work unit is selected.
 
@@ -88,11 +90,10 @@ Ran the root Gradle verification path and recorded the current Java baseline:
 
 ## Current in-progress work unit
 
-None. The one-shot implementation task is complete; the historical Phase 1 checklist remains below as baseline evidence, not as a new daily stop condition.
+None. The one-shot implementation and production delivery are complete; the historical Phase 1 checklist remains below as baseline evidence, not as a new daily stop condition.
 
 ## Deferred items
 
-- Canonical public hosting and deployment remain deferred because no safe host/domain was selected.
 - Backend hardening, observability, and distribution items not confirmed as gaps remain deferred rather than presented as implemented.
 
 ## Blockers
@@ -146,6 +147,8 @@ The one-shot site implementation verified the existing Gradle/site boundary and 
 - Representative ledger rows and terminal output are labeled as representative; no hosted dashboard or monitoring claim was added.
 - `.github/workflows/site-ci.yml` runs only for `site/**` changes and verifies the site without backend services.
 - `README.md` links to the site documentation without duplicating the product README.
+- Production reuses the Vercel project `backline-site`; releases update the stable `https://backline-site-xi.vercel.app` alias instead of creating a new project or canonical URL.
+- Chrome verification covered the desktop hero and navigation, the Quick Start anchor, a 418-by-543 mobile viewport, the mobile menu, and the mobile Quick Start command block.
 
 ## Architectural decisions
 
@@ -187,13 +190,16 @@ Public site claims were checked against `apps/cli`, `apps/api`, `apps/worker`, `
 - Phase 1.2 commit: `952c8d3` (`test: record Gradle baseline verification`) pushed to the existing PR branch.
 - One-shot commits pushed to the existing PR branch: `3990c7f`, `3b2041e`, `d152ada`, `5f0d80f`, and `a103dea`.
 - PR #13 (`feat: complete one-shot Backline landing site`) merged to `main` at `2b4761e` on 2026-07-12.
+- PR #15 merged the screenshot-led landing-page redesign to `main` at `5f5ac8f` on 2026-07-12 after backend, E2E, site, and GitGuardian checks passed.
 
 ## Deployment actions taken
 
-- Vercel project: none; deployment was explicitly deferred because no canonical public host was selected.
-- Deployment URL: none.
-- Production status: not deployed; deployment is not relevant to Phase 1.1 or Phase 1.2.
-- Rollback notes: not applicable.
+- Vercel project: `backline-site` (`prj_1zXjPNS9DXicUchgC8nLZjyhAspw`). Future site releases must reuse this project.
+- Canonical production URL: `https://backline-site-xi.vercel.app`.
+- Production deployment: `dpl_DPyxfUNLwsCcyxqwfmpbFt3XadtT`, state `READY`, published on 2026-07-12.
+- Delivery policy: immutable deployment URLs are release versions; the canonical production alias remains stable. Validate a preview when needed, then promote or deploy the verified build to this same project.
+- Browser verification: desktop layout and navigation passed; Quick Start navigation passed; the mobile menu and Quick Start content passed at 418 by 543 CSS pixels.
+- Rollback notes: use Vercel rollback or promote the last known-good deployment within `backline-site`; do not create a replacement project.
 
 ## Blast radius
 
@@ -201,5 +207,5 @@ Public site claims were checked against `apps/cli`, `apps/api`, `apps/worker`, `
 - Gradle configuration, API, worker, CLI runtime, database, migrations, reports, metrics, and packaging: unaffected by the one-shot site implementation.
 - Documentation: added the one-shot task contract, site README, root README site link, and progress evidence.
 - GitHub: implementation commits were pushed to PR #13; PR #13 merged to `main` at `2b4761e` after backend, E2E, site, and GitGuardian checks passed.
-- Deployed site state: none; deployment remains explicitly deferred.
+- Deployed site state: `READY` on the existing `backline-site` project and stable production alias.
 - Website isolation remains intact.
