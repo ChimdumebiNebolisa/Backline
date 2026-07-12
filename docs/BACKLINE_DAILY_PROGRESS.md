@@ -17,7 +17,7 @@ Build and verify the isolated public landing site, reconcile the roadmap/progres
 - [x] Implement the verified landing-page narrative and visual system.
 - [x] Add content, browser, accessibility, and reduced-motion checks.
 - [x] Add site-only CI and reconcile documentation.
-- [ ] Push the final documentation/CI commit and merge PR #13 to `main`.
+- [x] Push the final documentation/CI commit and merge PR #13 to `main`.
 
 The historical baseline checklist below remains evidence of the completed inventory work; it is not a daily execution gate for this task.
 
@@ -88,12 +88,12 @@ Ran the root Gradle verification path and recorded the current Java baseline:
 
 ## Current in-progress work unit
 
-One-shot implementation task: final site-only CI verification, backend independence check, PR update, and merge to `main`. The historical Phase 1 checklist remains below as baseline evidence, not as a new daily stop condition.
+None. The one-shot implementation task is complete; the historical Phase 1 checklist remains below as baseline evidence, not as a new daily stop condition.
 
 ## Deferred items
 
-- All website, deployment, backend hardening, observability, packaging, and reconciliation work remains ordered behind the Phase 1 baseline.
-- No expensive E2E or performance command was run during the inventory-only work unit.
+- Canonical public hosting and deployment remain deferred because no safe host/domain was selected.
+- Backend hardening, observability, and distribution items not confirmed as gaps remain deferred rather than presented as implemented.
 
 ## Blockers
 
@@ -186,7 +186,7 @@ Public site claims were checked against `apps/cli`, `apps/api`, `apps/worker`, `
 - Pull request: #13, `Establish daily roadmap inventory`.
 - Phase 1.2 commit: `952c8d3` (`test: record Gradle baseline verification`) pushed to the existing PR branch.
 - One-shot commits pushed to the existing PR branch: `3990c7f`, `3b2041e`, `d152ada`, `5f0d80f`, and `a103dea`.
-- PR #13 remains the merge target; final CI/documentation commit and merge are pending.
+- PR #13 (`feat: complete one-shot Backline landing site`) merged to `main` at `2b4761e` on 2026-07-12.
 
 ## Deployment actions taken
 
@@ -200,6 +200,6 @@ Public site claims were checked against `apps/cli`, `apps/api`, `apps/worker`, `
 - Website source/build/CI: added under `site/` and `.github/workflows/site-ci.yml`.
 - Gradle configuration, API, worker, CLI runtime, database, migrations, reports, metrics, and packaging: unaffected by the one-shot site implementation.
 - Documentation: added the one-shot task contract, site README, root README site link, and progress evidence.
-- GitHub: five implementation commits pushed to PR #13; merge remains pending final commit checks.
+- GitHub: implementation commits were pushed to PR #13; PR #13 merged to `main` at `2b4761e` after backend, E2E, site, and GitGuardian checks passed.
 - Deployed site state: none; deployment remains explicitly deferred.
 - Website isolation remains intact.
