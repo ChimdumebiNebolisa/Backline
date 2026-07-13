@@ -19,10 +19,30 @@ DROPPED
 ## Current status
 
 ```txt
-ACTIVE: none
+ACTIVE: RC1 (observed JSON response-contract drift)
 BLOCKED: Q12 (PRD update)
 DONE: Tasks 1-6, Q1-Q11, Q13 (embedded in e2e CI job); Q14 pending CI verification
 DROPPED: none
+```
+
+### RC1 — Observed JSON response-contract drift
+
+**Objective:** Capture canonical structural JSON response contracts and surface additive/breaking/noisy drift in diffs, CLI, and reports.
+
+**Exit criteria:**
+
+1. Executor captures bounded contracts (no scalar values); worker persists JSON, hash, status.
+2. Diff classifies structural changes with documented precedence; contract details attach even when another primary type wins.
+3. Config `contract` section validates and hashes; CGO-free/portable builds unchanged (N/A — Java).
+4. Sample API demonstrates stable/additive/breaking/ignored cases; docs updated.
+5. Verification: `./gradlew test` for executor, config, core, worker, api, cli, reporting, sample-api.
+
+**Verification commands:**
+
+```bash
+./gradlew :libs:executor:test :libs:config:test :libs:core:test
+./gradlew :apps:worker:test :apps:api:test :apps:cli:test :libs:reporting:test :apps:sample-api:test
+./gradlew test
 ```
 
 ## 9/10 sequenced execution plan

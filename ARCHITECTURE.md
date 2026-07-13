@@ -213,6 +213,7 @@ url
 expected_status
 max_latency_ms
 assertions_json
+contract_json
 config_hash
 active
 created_at
@@ -228,6 +229,8 @@ method allowed set
 expected_status between 100 and 599
 max_latency_ms greater than 0 when present
 ```
+
+`contract_json` stores the per-check observed-contract capture settings (`enabled`, `severity`, `ignore_paths`) when present.
 
 ### runs
 
@@ -526,7 +529,7 @@ Contains YAML parsing and config validation.
 
 ### libs/executor
 
-Contains HTTP execution and assertion evaluation.
+Contains HTTP execution, assertion evaluation, and bounded observed JSON response-contract capture.
 
 Used by worker only.
 
