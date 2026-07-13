@@ -8,6 +8,7 @@ import dev.backline.core.api.dto.AssertionResultDto;
 import dev.backline.core.check.CheckResultStatus;
 import dev.backline.core.check.HttpMethod;
 import dev.backline.core.constants.ResponseLimits;
+import dev.backline.executor.contract.ResponseContractCapturer;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -42,9 +43,9 @@ public final class HttpCheckExecutor {
     private static final Duration DEFAULT_REQUEST_TIMEOUT = Duration.ofSeconds(30);
 
     private final HttpClient httpClient;
-    @SuppressWarnings("unused")
     private final ObjectMapper objectMapper;
     private final Duration requestTimeout;
+    private final ResponseContractCapturer contractCapturer;
 
     public HttpCheckExecutor(HttpClient httpClient, ObjectMapper objectMapper) {
         this(httpClient, objectMapper, DEFAULT_REQUEST_TIMEOUT);
@@ -62,6 +63,7 @@ public final class HttpCheckExecutor {
         this.httpClient = Objects.requireNonNull(httpClient, "httpClient");
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
         this.requestTimeout = requestTimeout == null ? DEFAULT_REQUEST_TIMEOUT : requestTimeout;
+        this.contractCapturer = new ResponseContractCapturer(this.objectMapper);
     }
 
     private static HttpClient defaultHttpClient() {
@@ -100,7 +102,7 @@ public final class HttpCheckExecutor {
             long latencyMs = Duration.between(start, Instant.now()).toMillis();
             return evaluateResponse(request, response, latencyMs);
         } catch (HttpTimeoutException ex) {
-            return new HttpCheckOutcome(
+            return HttpCheckOutcome.withoutContract(
                     CheckResultStatus.ERROR,
                     null,
                     null,
@@ -109,7 +111,7 @@ public final class HttpCheckExecutor {
                     null,
                     List.of());
         } catch (IOException ex) {
-            return new HttpCheckOutcome(
+            return HttpCheckOutcome.withoutContract(
                     CheckResultStatus.ERROR,
                     null,
                     null,
@@ -119,7 +121,7 @@ public final class HttpCheckExecutor {
                     List.of());
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
-            return new HttpCheckOutcome(
+            return HttpCheckOutcome.withoutContract(
                     CheckResultStatus.ERROR,
                     null,
                     null,
@@ -131,7 +133,7 @@ public final class HttpCheckExecutor {
     }
 
     private static HttpCheckOutcome invalidUrlOutcome(String code, String message) {
-        return new HttpCheckOutcome(CheckResultStatus.ERROR, null, null, code, message, null, List.of());
+        return HttpCheckOutcome.withoutContract(CheckResultStatus.ERROR, null, null, code, message, null, List.of());
     }
 
     private HttpRequest buildHttpRequest(HttpCheckRequest request, URI uri) {
@@ -204,7 +206,25 @@ public final class HttpCheckExecutor {
             errorMessage = null;
         }
 
-        return new HttpCheckOutcome(status, actualStatus, latencyMs, errorCode, errorMessage, preview, assertionResults);
+        String contentType = response.headers().firstValue("Content-Type").orElse(null);
+        boolean assertionParsedJson = !assertionDefs.isEmpty() && !body.isEmpty()
+                && assertionResults.stream().noneMatch(r -> r.message() != null && r.message().contains("empty"));
+        // Prefer capture when the body is JSON-shaped or assertions already depended on JSON parsing.
+        boolean alreadyJson = assertionParsedJson;
+        ResponseContractCapturer.CaptureOutcome capture =
+                contractCapturer.capture(body, contentType, request.contract(), alreadyJson);
+
+        return new HttpCheckOutcome(
+                status,
+                actualStatus,
+                latencyMs,
+                errorCode,
+                errorMessage,
+                preview,
+                assertionResults,
+                capture.status(),
+                capture.contractJson(),
+                capture.fingerprint());
     }
 
     private static List<AssertionResultDto> evaluateAssertionsForEmptyBody(List<AssertionDto> assertions) {
