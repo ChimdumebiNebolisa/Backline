@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import { readFile, stat } from 'node:fs/promises';
 import test from 'node:test';
 
-const [html, css, terminalCapture, reportCapture] = await Promise.all([
+const [html, css, robots, terminalCapture, reportCapture] = await Promise.all([
   readFile(new URL('../index.html', import.meta.url), 'utf8'),
   readFile(new URL('../src/style.css', import.meta.url), 'utf8'),
+  readFile(new URL('../public/robots.txt', import.meta.url), 'utf8'),
   stat(new URL('../public/demo/failed-run-diff.webp', import.meta.url)),
   stat(new URL('../public/demo/markdown-report.webp', import.meta.url)),
 ]);
@@ -30,6 +31,7 @@ test('landing page includes accessible structure and repository links', () => {
     'aria-label="Primary navigation"',
     'aria-label="backline - home"',
     'aria-controls="site-nav"',
+    'rel="canonical" href="https://backline-site-xi.vercel.app/"',
     'https://github.com/ChimdumebiNebolisa/Backline',
   ]) {
     assert.ok(html.includes(phrase), `expected page to contain ${phrase}`);
@@ -51,4 +53,8 @@ test('landing page uses authentic demo captures and a direct setup path', () => 
 
 test('visible copy avoids typographic dash clutter', () => {
   assert.doesNotMatch(html, /[\u2014\u2013]/);
+});
+
+test('crawler policy allows the landing page to be indexed', () => {
+  assert.equal(robots, 'User-agent: *\nAllow: /\n');
 });

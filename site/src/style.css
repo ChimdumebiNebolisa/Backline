@@ -180,9 +180,9 @@ p { color: var(--muted); line-height: 1.65; }
 
 .section { padding-top: 7.5rem; padding-bottom: 7.5rem; }
 
-.section-intro { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 0.5fr); gap: 4rem; align-items: end; margin-bottom: 2.5rem; }
+.section-intro { max-width: 760px; margin-bottom: 2.5rem; }
 
-.section-intro p:not(.eyebrow) { max-width: 390px; margin-bottom: 0.25rem; font-size: 0.95rem; }
+.section-intro p:not(.eyebrow) { max-width: 560px; margin-bottom: 0.25rem; font-size: 0.95rem; }
 
 .report-capture { width: 100%; box-shadow: 22px 24px 0 rgba(0, 0, 0, 0.18); }
 
@@ -279,11 +279,10 @@ html[data-motion="enabled"] .reveal { transform: translateY(16px); transition: t
 html[data-motion="enabled"] .reveal.is-visible { transform: translateY(0); }
 
 @media (max-width: 900px) {
-  .hero, .section-intro, .policy-section, .architecture-layout, .boundaries-section, .quick-start { grid-template-columns: 1fr; }
+  .hero, .policy-section, .architecture-layout, .boundaries-section, .quick-start { grid-template-columns: 1fr; }
   .hero { gap: 3.5rem; min-height: auto; }
   .hero-copy { max-width: 720px; }
   .hero-capture { justify-self: start; }
-  .section-intro { gap: 1.25rem; }
   .section-intro p:not(.eyebrow) { max-width: 560px; }
   .boundaries-section { gap: 2.8rem; }
   .architecture-chain { justify-content: flex-start; }
