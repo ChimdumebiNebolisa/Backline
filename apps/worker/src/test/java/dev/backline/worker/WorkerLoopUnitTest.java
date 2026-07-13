@@ -67,7 +67,7 @@ class WorkerLoopUnitTest {
                 null,
                 null,
                 "{\"status\":\"UP\"}",
-                List.of()));
+                List.of(), null, null, null));
 
         WorkerLoop loop = new WorkerLoop(properties, dao, executor, objectMapper);
         loop.start();
@@ -162,7 +162,7 @@ class WorkerLoopUnitTest {
                     null,
                     null,
                     "{}",
-                    List.of());
+                    List.of(), null, null, null);
         });
         doAnswer(invocation -> null).when(dao).persistResultsAndFinalize(eq(runId), any(), eq(RunStatus.PASSED));
 

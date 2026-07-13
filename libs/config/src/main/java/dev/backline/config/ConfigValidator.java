@@ -2,8 +2,11 @@ package dev.backline.config;
 
 import dev.backline.config.model.BacklineConfig;
 import dev.backline.config.model.CheckDefinition;
+import dev.backline.config.model.ContractSettings;
 import dev.backline.config.model.RunPolicy;
 import dev.backline.core.api.dto.AssertionDto;
+import dev.backline.core.contract.ContractLimits;
+import dev.backline.core.contract.ContractPathSyntax;
 import dev.backline.core.validation.AssertionValidator;
 
 import java.net.URI;
@@ -86,8 +89,47 @@ public final class ConfigValidator {
                 }
             }
             validateAssertions(prefix, c.assertions());
+            validateContract(prefix, c.contract());
         }
         validatePolicy(config.policy());
+    }
+
+    private static void validateContract(String checkPrefix, ContractSettings contract) {
+        if (contract == null) {
+            return;
+        }
+        if (contract.severity() != null && !contract.severity().isBlank()) {
+            String severity = contract.severity().trim().toLowerCase();
+            if (!severity.equals("warn") && !severity.equals("block")) {
+                throw new ConfigParseException(
+                        "contract.severity must be warn or block", checkPrefix + ".contract.severity");
+            }
+        }
+        List<String> ignorePaths = contract.ignorePaths();
+        if (ignorePaths == null) {
+            return;
+        }
+        if (ignorePaths.size() > ContractLimits.MAX_IGNORE_PATHS) {
+            throw new ConfigParseException(
+                    "contract.ignore_paths must contain at most " + ContractLimits.MAX_IGNORE_PATHS + " entries",
+                    checkPrefix + ".contract.ignore_paths");
+        }
+        for (int i = 0; i < ignorePaths.size(); i++) {
+            String path = ignorePaths.get(i);
+            String field = checkPrefix + ".contract.ignore_paths[" + i + "]";
+            if (path == null || path.isBlank()) {
+                throw new ConfigParseException("ignore path must not be blank", field);
+            }
+            if (path.trim().length() > ContractLimits.MAX_IGNORE_PATH_LENGTH) {
+                throw new ConfigParseException(
+                        "ignore path must be at most " + ContractLimits.MAX_IGNORE_PATH_LENGTH + " characters",
+                        field);
+            }
+            if (!ContractPathSyntax.isValid(path)) {
+                throw new ConfigParseException(
+                        "ignore path must use $.a.b / [] syntax only", field);
+            }
+        }
     }
 
     private static void validatePolicy(RunPolicy policy) {

@@ -2,6 +2,7 @@ package dev.backline.core.api.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import dev.backline.core.check.HttpMethod;
+import dev.backline.core.contract.ContractSettingsDto;
 
 import java.util.List;
 
@@ -16,4 +17,17 @@ public record CheckDefinitionDto(
         String url,
         int expectedStatus,
         Integer maxLatencyMs,
-        List<AssertionDto> assertions) {}
+        List<AssertionDto> assertions,
+        ContractSettingsDto contract) {
+
+    public CheckDefinitionDto(
+            String key,
+            String name,
+            HttpMethod method,
+            String url,
+            int expectedStatus,
+            Integer maxLatencyMs,
+            List<AssertionDto> assertions) {
+        this(key, name, method, url, expectedStatus, maxLatencyMs, assertions, null);
+    }
+}

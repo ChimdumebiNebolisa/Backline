@@ -102,6 +102,8 @@ This document defines enforceable rules for building Backline. If a rule cannot 
 - Do not store full response bodies by default.
 - Store only a bounded response preview.
 - Limit maximum response preview size.
+- Observed JSON response contracts may store path/type structure and fingerprints only; never scalar values and never full response bodies.
+- Contract capture must be bounded (bytes inspected, depth, path count, serialized size) and must record truncation explicitly.
 - Set HTTP client timeouts.
 - Validate URLs before execution.
 - Do not follow redirects unless explicitly configured.

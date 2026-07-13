@@ -201,5 +201,81 @@ class DiffServiceTest extends PostgresTestBase {
         checkResultRepository.save(e);
     }
 
+    private void saveResultWithContract(
+            RunEntity run,
+            CheckEntity check,
+            String key,
+            String name,
+            CheckResultStatus status,
+            Integer actual,
+            Long latency,
+            String contractJson,
+            String contractHash,
+            String contractStatus) {
+        CheckResultEntity e = new CheckResultEntity();
+        e.setRunId(run.getId());
+        e.setCheckId(check.getId());
+        e.setCheckKey(key);
+        e.setCheckName(name);
+        e.setStatus(status);
+        e.setActualStatus(actual);
+        e.setLatencyMs(latency);
+        e.setResponseContractJson(contractJson);
+        e.setResponseContractHash(contractHash);
+        e.setResponseContractStatus(contractStatus);
+        e.setCreatedAt(Instant.now());
+        checkResultRepository.save(e);
+    }
+
+    @Test
+    void contractBreaking_whenStillPassing() {
+        RunCtx ctx = baseProjectAndCheck("ctr-" + UUID.randomUUID().toString().substring(0, 8));
+        String prevJson =
+                "{\"version\":1,\"root_type\":\"object\",\"paths\":[{\"path\":\"$\",\"types\":[\"object\"]},{\"path\":\"$.email\",\"types\":[\"string\"]}],\"truncated\":false}";
+        String curJson =
+                "{\"version\":1,\"root_type\":\"object\",\"paths\":[{\"path\":\"$\",\"types\":[\"object\"]}],\"truncated\":false}";
+        String prevHash = dev.backline.core.contract.ResponseContractCanonicalizer.sha256Hex(prevJson);
+        String curHash = dev.backline.core.contract.ResponseContractCanonicalizer.sha256Hex(curJson);
+
+        RunEntity prev = saveRun(ctx.project, RunStatus.PASSED, "2023-01-01T00:00:00Z");
+        prev.setFinishedAt(Instant.parse("2023-01-01T01:00:00Z"));
+        runRepository.save(prev);
+        saveResultWithContract(prev, ctx.check, "s", "S", CheckResultStatus.PASSED, 200, 10L, prevJson, prevHash, "CAPTURED");
+
+        RunEntity cur = saveRun(ctx.project, RunStatus.QUEUED, "2023-02-01T00:00:00Z");
+        saveResultWithContract(cur, ctx.check, "s", "S", CheckResultStatus.PASSED, 200, 10L, curJson, curHash, "CAPTURED");
+
+        var diff = diffService.computeDiff(cur.getId());
+        var entry = diff.entries().getFirst();
+        assertThat(entry.changeType()).isEqualTo(RunDiffChangeType.CONTRACT_BREAKING);
+        assertThat(entry.contractChange()).isNotNull();
+        assertThat(entry.contractChange().classification().name()).isEqualTo("BREAKING");
+    }
+
+    @Test
+    void stillFailing_withContractChange_keepsStatusPriorityButAttachesContract() {
+        RunCtx ctx = baseProjectAndCheck("scf-" + UUID.randomUUID().toString().substring(0, 8));
+        String prevJson =
+                "{\"version\":1,\"root_type\":\"object\",\"paths\":[{\"path\":\"$\",\"types\":[\"object\"]},{\"path\":\"$.a\",\"types\":[\"number\"]}],\"truncated\":false}";
+        String curJson =
+                "{\"version\":1,\"root_type\":\"object\",\"paths\":[{\"path\":\"$\",\"types\":[\"object\"]},{\"path\":\"$.a\",\"types\":[\"number\"]},{\"path\":\"$.b\",\"types\":[\"string\"]}],\"truncated\":false}";
+        String prevHash = dev.backline.core.contract.ResponseContractCanonicalizer.sha256Hex(prevJson);
+        String curHash = dev.backline.core.contract.ResponseContractCanonicalizer.sha256Hex(curJson);
+
+        RunEntity prev = saveRun(ctx.project, RunStatus.FAILED, "2023-03-01T00:00:00Z");
+        prev.setFinishedAt(Instant.parse("2023-03-01T01:00:00Z"));
+        runRepository.save(prev);
+        saveResultWithContract(prev, ctx.check, "f", "F", CheckResultStatus.FAILED, 500, 10L, prevJson, prevHash, "CAPTURED");
+
+        RunEntity cur = saveRun(ctx.project, RunStatus.QUEUED, "2023-04-01T00:00:00Z");
+        // Status code also changes — that wins precedence over additive contract drift.
+        saveResultWithContract(cur, ctx.check, "f", "F", CheckResultStatus.FAILED, 404, 10L, curJson, curHash, "CAPTURED");
+
+        var entry = diffService.computeDiff(cur.getId()).entries().getFirst();
+        assertThat(entry.changeType()).isEqualTo(RunDiffChangeType.STATUS_CODE_CHANGED);
+        assertThat(entry.contractChange()).isNotNull();
+        assertThat(entry.contractChange().classification().name()).isEqualTo("ADDITIVE");
+    }
+
     private record RunCtx(ProjectEntity project, CheckEntity check) {}
 }

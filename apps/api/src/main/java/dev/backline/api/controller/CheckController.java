@@ -8,8 +8,10 @@ import dev.backline.core.api.dto.CheckDto;
 import dev.backline.core.api.dto.CheckSyncRequest;
 import dev.backline.api.dto.CheckDefinitionBody;
 import dev.backline.api.dto.CheckSyncBody;
+import dev.backline.api.dto.ContractSettingsBody;
 import dev.backline.api.service.CheckHistoryService;
 import dev.backline.api.service.CheckSyncService;
+import dev.backline.core.contract.ContractSettingsDto;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -67,6 +69,14 @@ public class CheckController {
                 b.url(),
                 b.expectedStatus(),
                 b.maxLatencyMs(),
-                b.assertions() == null ? List.of() : b.assertions());
+                b.assertions() == null ? List.of() : b.assertions(),
+                toContract(b.contract()));
+    }
+
+    private static ContractSettingsDto toContract(ContractSettingsBody body) {
+        if (body == null) {
+            return null;
+        }
+        return new ContractSettingsDto(body.enabled(), body.severity(), body.ignorePaths());
     }
 }

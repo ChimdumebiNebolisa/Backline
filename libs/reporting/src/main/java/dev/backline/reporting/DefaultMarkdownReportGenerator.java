@@ -9,6 +9,9 @@ import dev.backline.core.api.dto.RunDiffChangeType;
 import dev.backline.core.api.dto.RunDiffEntry;
 import dev.backline.core.api.dto.RunDto;
 import dev.backline.core.check.CheckResultStatus;
+import dev.backline.core.contract.ContractChangeDetail;
+import dev.backline.core.contract.ContractChangeKind;
+import dev.backline.core.contract.ContractPathChange;
 
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -60,6 +63,7 @@ public final class DefaultMarkdownReportGenerator implements MarkdownReportGener
                 "Known limitations",
                 "Backline is a local-first regression ledger: single-tenant (no auth), JSONPath assertions "
                         + "limited to deterministic single-operator rules, response previews bounded (~4096 bytes), "
+                        + "observed JSON response contracts capture path/type structure only (not OpenAPI validation), "
                         + "and worker retries apply to runtime errors only (not failed assertions). "
                         + "Full list: [docs/known-limitations.md](docs/known-limitations.md) in the repository."));
 
@@ -232,8 +236,51 @@ public final class DefaultMarkdownReportGenerator implements MarkdownReportGener
                     case NEWLY_ADDED -> b.append(": newly added in current run");
                     case REMOVED -> b.append(": removed since previous run");
                     case ASSERTION_CHANGED -> b.append(": assertion outcome changed");
+                    case CONTRACT_BREAKING -> b.append(": breaking observed response-contract drift");
+                    case CONTRACT_ADDITIVE -> b.append(": additive observed response-contract drift");
+                    case CONTRACT_NOISY -> b.append(": noisy observed response-contract drift");
+                    case CONTRACT_UNAVAILABLE -> b.append(": observed response-contract capture unavailable");
                 }
                 b.append('\n');
+                b.append(contractChangeMarkdown(e.contractChange()));
+            }
+            b.append('\n');
+        }
+        return b.toString();
+    }
+
+    private static String contractChangeMarkdown(ContractChangeDetail detail) {
+        if (detail == null || detail.classification() == null) {
+            return "";
+        }
+        StringBuilder b = new StringBuilder();
+        b.append("  - Contract: `").append(detail.classification()).append('`');
+        if (detail.truncated()) {
+            b.append(" (truncated)");
+        }
+        b.append('\n');
+        List<ContractPathChange> changes = detail.changes() == null ? List.of() : detail.changes();
+        for (ContractPathChange change : changes) {
+            b.append("    - ");
+            if (change.kind() == ContractChangeKind.REMOVED) {
+                b.append("removed `")
+                        .append(change.path())
+                        .append("` (was ")
+                        .append(String.join("|", change.previousTypes()))
+                        .append(')');
+            } else if (change.kind() == ContractChangeKind.ADDED) {
+                b.append("added `")
+                        .append(change.path())
+                        .append("` (")
+                        .append(String.join("|", change.currentTypes()))
+                        .append(')');
+            } else {
+                b.append("changed `")
+                        .append(change.path())
+                        .append("` from ")
+                        .append(String.join("|", change.previousTypes()))
+                        .append(" to ")
+                        .append(String.join("|", change.currentTypes()));
             }
             b.append('\n');
         }

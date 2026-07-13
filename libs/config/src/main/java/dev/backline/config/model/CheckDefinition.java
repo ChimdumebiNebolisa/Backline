@@ -16,4 +16,5 @@ public record CheckDefinition(
         String url,
         int expectedStatus,
         Integer maxLatencyMs,
-        List<AssertionDto> assertions) {}
+        List<AssertionDto> assertions,
+        ContractSettings contract) {}

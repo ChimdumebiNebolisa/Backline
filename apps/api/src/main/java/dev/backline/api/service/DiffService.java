@@ -11,6 +11,10 @@ import dev.backline.core.api.dto.RunDiffChangeType;
 import dev.backline.core.api.dto.RunDiffDto;
 import dev.backline.core.api.dto.RunDiffEntry;
 import dev.backline.core.check.CheckResultStatus;
+import dev.backline.core.contract.ContractChangeClassification;
+import dev.backline.core.contract.ContractChangeDetail;
+import dev.backline.core.contract.ResponseContractDiffer;
+import dev.backline.core.contract.ResponseContractStatus;
 import dev.backline.core.run.RunStatus;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -32,6 +36,10 @@ import java.util.UUID;
  *
  * <p>Latency changes are flagged when both sides have {@code latency_ms} and either the absolute delta exceeds 100ms
  * or the relative delta exceeds 50% of the baseline (non-zero previous latency).
+ *
+ * <p>Observed response-contract drift is classified separately and attached on each entry. Primary
+ * {@link RunDiffChangeType} precedence:
+ * status transition → HTTP status code → breaking contract → assertion → additive/noisy contract → latency → still *.
  */
 @Service
 public class DiffService {
@@ -152,7 +160,8 @@ public class DiffService {
                     null,
                     cur.getActualStatus(),
                     null,
-                    cur.getLatencyMs()));
+                    cur.getLatencyMs(),
+                    null));
         }
         entries.sort(Comparator.comparing(RunDiffEntry::checkKey));
         return entries;
@@ -169,7 +178,8 @@ public class DiffService {
                     null,
                     cur.getActualStatus(),
                     null,
-                    cur.getLatencyMs());
+                    cur.getLatencyMs(),
+                    null);
         }
         if (prev != null && cur == null) {
             return new RunDiffEntry(
@@ -181,40 +191,90 @@ public class DiffService {
                     prev.getActualStatus(),
                     null,
                     prev.getLatencyMs(),
+                    null,
                     null);
         }
         assert prev != null && cur != null;
+        ContractChangeDetail contractChange = contractDiff(prev, cur);
         CheckResultStatus ps = prev.getStatus();
         CheckResultStatus cs = cur.getStatus();
         if (ps != cs) {
             if (cs == CheckResultStatus.PASSED) {
-                return bothKnown(prev, cur, RunDiffChangeType.NEWLY_PASSING);
+                return bothKnown(prev, cur, RunDiffChangeType.NEWLY_PASSING, contractChange);
             }
             if (cs == CheckResultStatus.FAILED || cs == CheckResultStatus.ERROR) {
-                return bothKnown(prev, cur, RunDiffChangeType.NEWLY_FAILING);
+                return bothKnown(prev, cur, RunDiffChangeType.NEWLY_FAILING, contractChange);
             }
-            return bothKnown(prev, cur, RunDiffChangeType.STILL_FAILING);
+            return bothKnown(prev, cur, RunDiffChangeType.STILL_FAILING, contractChange);
         }
-        // Status is unchanged here (transitions returned above). Surface the most salient behavioral
-        // change first, then fall back to a still-passing/still-failing summary. Status code and
-        // assertion changes are reported even when a check stays failing so regressions in a broken
-        // endpoint are not hidden behind a generic STILL_FAILING label.
+        // Status is unchanged here. Precedence: status code → breaking contract → assertion →
+        // additive/noisy contract → latency → still *. Always attach contractChange when present.
         if (!Objects.equals(prev.getActualStatus(), cur.getActualStatus())) {
-            return bothKnown(prev, cur, RunDiffChangeType.STATUS_CODE_CHANGED);
+            return bothKnown(prev, cur, RunDiffChangeType.STATUS_CODE_CHANGED, contractChange);
         }
-        if (latencyChanged(prev.getLatencyMs(), cur.getLatencyMs())) {
-            return bothKnown(prev, cur, RunDiffChangeType.LATENCY_CHANGED);
+        if (contractChange != null && contractChange.classification() == ContractChangeClassification.BREAKING) {
+            return bothKnown(prev, cur, RunDiffChangeType.CONTRACT_BREAKING, contractChange);
         }
         if (!normalizeAssertions(prev.getAssertionsJson())
                 .equals(normalizeAssertions(cur.getAssertionsJson()))) {
-            return bothKnown(prev, cur, RunDiffChangeType.ASSERTION_CHANGED);
+            return bothKnown(prev, cur, RunDiffChangeType.ASSERTION_CHANGED, contractChange);
+        }
+        if (contractChange != null && contractChange.classification() == ContractChangeClassification.ADDITIVE) {
+            return bothKnown(prev, cur, RunDiffChangeType.CONTRACT_ADDITIVE, contractChange);
+        }
+        if (contractChange != null && contractChange.classification() == ContractChangeClassification.NOISY) {
+            return bothKnown(prev, cur, RunDiffChangeType.CONTRACT_NOISY, contractChange);
+        }
+        if (latencyChanged(prev.getLatencyMs(), cur.getLatencyMs())) {
+            return bothKnown(prev, cur, RunDiffChangeType.LATENCY_CHANGED, contractChange);
+        }
+        if (contractChange != null && contractChange.classification() == ContractChangeClassification.UNAVAILABLE
+                && hasAnyContractSignal(prev, cur)) {
+            return bothKnown(prev, cur, RunDiffChangeType.CONTRACT_UNAVAILABLE, contractChange);
         }
         return cs == CheckResultStatus.PASSED
-                ? bothKnown(prev, cur, RunDiffChangeType.STILL_PASSING)
-                : bothKnown(prev, cur, RunDiffChangeType.STILL_FAILING);
+                ? bothKnown(prev, cur, RunDiffChangeType.STILL_PASSING, contractChange)
+                : bothKnown(prev, cur, RunDiffChangeType.STILL_FAILING, contractChange);
     }
 
-    private static RunDiffEntry bothKnown(CheckResultEntity prev, CheckResultEntity cur, RunDiffChangeType change) {
+    private static boolean hasAnyContractSignal(CheckResultEntity prev, CheckResultEntity cur) {
+        return prev.getResponseContractStatus() != null || cur.getResponseContractStatus() != null
+                || prev.getResponseContractHash() != null || cur.getResponseContractHash() != null;
+    }
+
+    private static ContractChangeDetail contractDiff(CheckResultEntity prev, CheckResultEntity cur) {
+        ResponseContractStatus prevStatus = parseStatus(prev.getResponseContractStatus());
+        ResponseContractStatus curStatus = parseStatus(cur.getResponseContractStatus());
+        if (prevStatus == null && curStatus == null
+                && prev.getResponseContractJson() == null
+                && cur.getResponseContractJson() == null) {
+            return null;
+        }
+        return ResponseContractDiffer.diff(
+                prevStatus,
+                prev.getResponseContractJson(),
+                prev.getResponseContractHash(),
+                curStatus,
+                cur.getResponseContractJson(),
+                cur.getResponseContractHash());
+    }
+
+    private static ResponseContractStatus parseStatus(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            return ResponseContractStatus.valueOf(raw.trim());
+        } catch (IllegalArgumentException ex) {
+            return ResponseContractStatus.ERROR;
+        }
+    }
+
+    private static RunDiffEntry bothKnown(
+            CheckResultEntity prev,
+            CheckResultEntity cur,
+            RunDiffChangeType change,
+            ContractChangeDetail contractChange) {
         return new RunDiffEntry(
                 cur.getCheckKey(),
                 cur.getCheckName(),
@@ -224,7 +284,8 @@ public class DiffService {
                 prev.getActualStatus(),
                 cur.getActualStatus(),
                 prev.getLatencyMs(),
-                cur.getLatencyMs());
+                cur.getLatencyMs(),
+                contractChange);
     }
 
     private static String normalizeAssertions(String json) {

@@ -69,6 +69,33 @@ Example:
 
 `ERROR` and `CANCELLED` runs are never used as baselines.
 
+## Observed JSON response contracts
+
+Per-check YAML (warn-by-default when omitted):
+
+```yaml
+contract:
+  enabled: true
+  severity: warn
+  ignore_paths:
+    - $.meta.generated_at
+    - $.items[].debug
+```
+
+Ignore-path syntax is limited to `$.a.b` and `[]` segments (no filters or recursive descent).
+
+Persisted capture on `check_results`:
+
+| Column | Meaning |
+|--------|---------|
+| `response_contract_json` | Canonical structural contract (paths + types) |
+| `response_contract_hash` | SHA-256 of canonical bytes |
+| `response_contract_status` | `CAPTURED`, `TRUNCATED`, `NOT_JSON`, `INVALID_JSON`, `DISABLED`, `ERROR` |
+
+Empty arrays contribute the array path only (no `[]` child). Empty objects contribute the object path only. Heterogeneous arrays union element types under `path[]`. Truncation reasons are stable codes such as `body_size_limit`, `depth_limit`, `path_count_limit`.
+
+Diff entries may include structured `contractChange` with classification `breaking` / `additive` / `noisy` / `unchanged` / `unavailable`. Primary change-type precedence: status transition → HTTP status code → breaking contract → assertion → additive/noisy contract → latency → still *. Adding `null` to an existing type set is **noisy**. Response field names remain structural data and may be sensitive.
+
 ## Pagination contract
 
 List endpoints use absolute offset semantics:
@@ -98,4 +125,5 @@ CLI maps API failures to actionable messages and non-zero exit codes.
 
 - Redact `Authorization`, `Cookie`, and `Set-Cookie` from logs and stored previews.
 - Response previews are bounded (4096 bytes by default).
+- Observed response contracts never store scalar values, but path names can still be sensitive; treat contracts as confidential project data.
 - Config must not execute shell commands or perform arbitrary file writes.

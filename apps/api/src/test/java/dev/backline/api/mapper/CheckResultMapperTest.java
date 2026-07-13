@@ -34,4 +34,9 @@ class CheckResultMapperTest {
         assertThat(CheckResultMapper.readAssertions(mapper, "{ not valid json")).isEmpty();
         assertThat(CheckResultMapper.readAssertions(mapper, "\"a string, not an array\"")).isEmpty();
     }
+
+    @Test
+    void readContract_corruptJson_returnsNullInsteadOfThrowing() {
+        assertThat(CheckResultMapper.readContract(mapper, "{ not valid")).isNull();
+    }
 }

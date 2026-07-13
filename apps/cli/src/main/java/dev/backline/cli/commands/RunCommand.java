@@ -11,6 +11,7 @@ import picocli.CommandLine;
 import dev.backline.config.ConfigParseException;
 import dev.backline.config.ConfigParser;
 import dev.backline.config.model.BacklineConfig;
+import dev.backline.config.model.ContractSettings;
 import dev.backline.config.model.RunPolicy;
 import dev.backline.core.api.dto.CheckDefinitionDto;
 import dev.backline.core.api.dto.CheckSyncRequest;
@@ -18,6 +19,7 @@ import dev.backline.core.api.dto.CreateProjectRequest;
 import dev.backline.core.api.dto.CreateRunRequest;
 import dev.backline.core.api.dto.DiffBaselineStrategy;
 import dev.backline.core.api.dto.RunDiffDto;
+import dev.backline.core.contract.ContractSettingsDto;
 import dev.backline.core.error.ErrorCode;
 import dev.backline.core.run.RunStatus;
 import picocli.CommandLine.Command;
@@ -124,7 +126,8 @@ public class RunCommand implements Callable<Integer> {
                             c.url(),
                             c.expectedStatus(),
                             c.maxLatencyMs(),
-                            c.assertions()))
+                            c.assertions(),
+                            toContractDto(c.contract())))
                     .toList();
             client.syncChecks(new CheckSyncRequest(config.project(), config.project(), checks));
             var run = client.submitRun(new CreateRunRequest(
@@ -236,5 +239,12 @@ public class RunCommand implements Callable<Integer> {
             return 3;
         }
         return 0;
+    }
+
+    private static ContractSettingsDto toContractDto(ContractSettings contract) {
+        if (contract == null) {
+            return null;
+        }
+        return new ContractSettingsDto(contract.enabled(), contract.severity(), contract.ignorePaths());
     }
 }

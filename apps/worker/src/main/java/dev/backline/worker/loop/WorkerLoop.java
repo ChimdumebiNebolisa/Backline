@@ -155,7 +155,8 @@ public class WorkerLoop {
                     check.expectedStatus(),
                     check.maxLatencyMs(),
                     check.assertions(),
-                    null);
+                    null,
+                    check.contract());
 
             log.info("check.started runId={} checkKey={} workerId={}", run.runId(), check.key(), props.getId());
             HttpCheckOutcome outcome = executor.execute(request);
@@ -179,7 +180,10 @@ public class WorkerLoop {
                     outcome.errorCode(),
                     outcome.errorMessage(),
                     outcome.responsePreview(),
-                    assertionsJson));
+                    assertionsJson,
+                    outcome.responseContractJson(),
+                    outcome.responseContractHash(),
+                    outcome.responseContractStatus()));
         }
 
         if (dao.isRunCancelled(run.runId())) {

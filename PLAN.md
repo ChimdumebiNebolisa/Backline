@@ -21,9 +21,15 @@ DROPPED
 ```txt
 ACTIVE: none
 BLOCKED: Q12 (PRD update)
-DONE: Tasks 1-6, Q1-Q11, Q13 (embedded in e2e CI job); Q14 pending CI verification
+DONE: Tasks 1-6, Q1-Q11, Q13 (embedded in e2e CI job); RC1 (observed JSON response-contract drift); Q14 pending CI verification
 DROPPED: none
 ```
+
+### RC1 — Observed JSON response-contract drift — DONE
+
+**Objective:** Capture canonical structural JSON response contracts and surface additive/breaking/noisy drift in diffs, CLI, and reports.
+
+**Exit criteria:** met (executor capture, V8 persistence, DiffService classification, CLI/report rendering, sample demo, docs, tests).
 
 ## 9/10 sequenced execution plan
 

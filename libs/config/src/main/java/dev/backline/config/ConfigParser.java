@@ -10,6 +10,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import dev.backline.config.model.BacklineConfig;
 import dev.backline.config.model.CheckDefinition;
+import dev.backline.config.model.ContractSettings;
 import dev.backline.core.api.dto.AssertionDto;
 
 import java.io.IOException;
@@ -99,6 +100,25 @@ public final class ConfigParser {
         map.put("method", c.method().name());
         map.put("name", c.name());
         map.put("url", c.url());
+        if (c.contract() != null) {
+            map.put("contract", contractToCanonicalMap(c.contract()));
+        }
+        return map;
+    }
+
+    private static Map<String, Object> contractToCanonicalMap(ContractSettings contract) {
+        Map<String, Object> map = new TreeMap<>();
+        if (contract.enabled() != null) {
+            map.put("enabled", contract.enabled());
+        }
+        if (contract.severity() != null) {
+            map.put("severity", contract.severity().trim().toLowerCase());
+        }
+        if (contract.ignorePaths() != null && !contract.ignorePaths().isEmpty()) {
+            map.put(
+                    "ignore_paths",
+                    contract.ignorePaths().stream().map(String::trim).sorted().toList());
+        }
         return map;
     }
 

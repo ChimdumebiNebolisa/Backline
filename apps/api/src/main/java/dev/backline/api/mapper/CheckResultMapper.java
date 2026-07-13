@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.backline.api.persistence.entity.CheckResultEntity;
 import dev.backline.core.api.dto.AssertionResultDto;
 import dev.backline.core.api.dto.CheckResultDto;
+import dev.backline.core.contract.ResponseContract;
+import dev.backline.core.contract.ResponseContractStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,7 +33,10 @@ public final class CheckResultMapper {
                 e.getErrorMessage(),
                 e.getResponsePreview(),
                 readAssertions(mapper, e.getAssertionsJson()),
-                e.getCreatedAt());
+                e.getCreatedAt(),
+                parseStatus(e.getResponseContractStatus()),
+                e.getResponseContractHash(),
+                readContract(mapper, e.getResponseContractJson()));
     }
 
     /**
@@ -50,6 +55,34 @@ public final class CheckResultMapper {
         } catch (Exception ex) {
             log.warn("invalid assertions_json for check result; returning empty assertions: {}", ex.getMessage());
             return Collections.emptyList();
+        }
+    }
+
+    /**
+     * Deserializes observed contract JSON defensively. Corrupt contract JSON returns null without failing
+     * the results endpoint.
+     */
+    public static Object readContract(ObjectMapper mapper, String json) {
+        if (json == null || json.isBlank()) {
+            return null;
+        }
+        try {
+            return mapper.readValue(json, ResponseContract.class);
+        } catch (Exception ex) {
+            log.warn("invalid response_contract_json for check result; omitting contract: {}", ex.getMessage());
+            return null;
+        }
+    }
+
+    private static ResponseContractStatus parseStatus(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            return ResponseContractStatus.valueOf(raw.trim());
+        } catch (IllegalArgumentException ex) {
+            log.warn("unknown response_contract_status {}; omitting", raw);
+            return null;
         }
     }
 }

@@ -122,6 +122,17 @@ checks:
     url: http://localhost:8081/broken
     expected_status: 200
     max_latency_ms: 500
+
+  - key: schema-change
+    name: Schema change endpoint
+    method: GET
+    url: http://localhost:8081/schema-change
+    expected_status: 200
+    contract:
+      enabled: true
+      severity: warn
+      ignore_paths:
+        - $.meta.generated_at
 ```
 
 Validation rules:
@@ -135,6 +146,22 @@ Validation rules:
 - `expected_status` must be between 100 and 599.
 - `max_latency_ms`, when present, must be greater than zero.
 - Assertions must use supported assertion types only.
+- Optional per-check `contract` section may set `enabled`, `severity` (`warn` default), and bounded `ignore_paths` using a small path syntax (`$.a.b` and `[]` segments only).
+
+#### Observed JSON response contracts
+
+Backline must capture a versioned, canonical structural snapshot of JSON HTTP response bodies for each check when contract capture is enabled (warn-by-default when omitted).
+
+Requirements:
+
+- Record paths and JSON types only; never scalar values.
+- Represent arrays with `[]` segments (no indexes).
+- Persist contract JSON, SHA-256 fingerprint, and capture status on check results.
+- Surface structural drift in run diffs, CLI output, and reports without claiming OpenAPI validation.
+- Bound capture by response bytes, depth, path count, and serialized size; truncated captures remain visible.
+- Contract drift must not by itself change check HTTP status unless an explicit policy later treats it as failure.
+
+This is observed-response drift detection. A single observed response cannot prove that a field is formally required or optional.
 
 #### Backend API
 
@@ -174,7 +201,7 @@ The worker must:
 - Poll queued runs.
 - Claim jobs safely using database locking.
 - Execute HTTP checks.
-- Record result status, actual status code, latency, error details, response preview, and assertion results.
+- Record result status, actual status code, latency, error details, response preview, assertion results, and observed JSON response-contract snapshots when capture is enabled.
 - Retry failed worker attempts only for worker errors, not failed API assertions.
 - Enforce valid status transitions.
 - Use transactions when claiming and finalizing runs.
@@ -235,7 +262,10 @@ The diff must show:
 - Status code changes.
 - Latency increase or decrease.
 - Assertion changes.
+- Observed JSON response-contract structural drift (breaking, additive, noisy, unavailable, truncated).
 - Missing or newly added checks.
+
+Diff precedence for the primary change type must prefer status transitions and HTTP status-code changes over breaking contract drift, then assertion changes, then additive or noisy contract drift, then latency, then still-passing or still-failing. Contract change details remain attached even when another primary type wins.
 
 #### Reports
 
@@ -347,6 +377,8 @@ Do not build:
 - Fuzz testing.
 - AI analysis.
 - Full OpenAPI contract testing.
+- Inferring formal required versus optional fields from a single observed response.
+- Storing complete response bodies as part of contract capture.
 - Team permissions.
 - Frontend dashboard.
 - Kafka, Kubernetes, or service discovery.

@@ -11,6 +11,7 @@ Backline is intentionally scoped as a **local-first regression ledger**, not a f
 - **Schema migrations** are owned by the **API** process (Flyway on startup). The worker assumes the database schema matches the migrations shipped with the API.
 - **Sample API** ships **intentional failures** and odd shapes for demos; do not treat it as a production service.
 - **Diff baseline**: comparison uses the most recent **completed** run (status **PASSED** or **FAILED**) for the same project and environment that was **queued before the current run**; **CANCELLED** and **ERROR** runs are skipped as previous baselines. Status-code and assertion changes are reported even when a check stays failing, so a shift such as `500 → 404` is not hidden behind a generic still-failing label.
+- **Observed JSON response contracts** capture path and type structure only (never scalar values). This detects observed-response drift; it is **not** OpenAPI validation and cannot prove that a field is formally required or optional. Capture is bounded and may truncate. Additive drift warns by default and does not fail the HTTP check status by itself.
 - **No load testing**, fuzzing, or contract testing against arbitrary OpenAPI documents in this build.
 - **No cloud sync**, SaaS hosting workflow, or team permission model.
 
