@@ -37,19 +37,32 @@
           <p class="eyebrow">Terminal-first API regression ledger</p>
           <h1 id="hero-title">Regression history for APIs <em>that change.</em></h1>
           <p class="hero-lede">Backline gives backend teams a durable trail from HTTP check to CI decision.</p>
-          <div class="setup-strip" aria-label="Start locally">
-            <span>Start locally</span>
-            <code>docker compose up --build -d</code>
+          <div class="setup-strip" aria-label="Install Backline">
+            <span>Install Backline</span>
+            <code>./gradlew :apps:cli:installDist</code>
           </div>
           <div class="hero-actions">
             <a class="button button-light" href="https://github.com/ChimdumebiNebolisa/Backline/blob/main/README.md#quick-start">Open setup guide <span aria-hidden="true">-&gt;</span></a>
             <a class="text-link" href="https://github.com/ChimdumebiNebolisa/Backline/tree/main/docs">Read the docs <span aria-hidden="true">+</span></a>
           </div>
         </div>
-        <figure class="demo-capture hero-capture reveal" data-reveal>
-          <img src="/demo/failed-run-diff.webp" width="1360" height="900" alt="Terminal capture from Backline's Docker end-to-end demo showing a failed broken-endpoint run and its diff." fetchpriority="high" />
-          <figcaption>Failed run and diff from the documented Docker demo.</figcaption>
-        </figure>
+        <section class="evidence-window hero-evidence reveal" aria-label="Authentic Backline CLI output" data-reveal>
+          <div class="evidence-window-bar"><span>Backline CLI</span><span>failed run and diff</span></div>
+          <pre><code><span class="dim">$</span> cd examples/sample-api
+<span class="dim">$</span> backline run --timeout-seconds 120
+RUN_ID: dc1aad4c-48b7-44f8-9849-6df62de09d8a
+status: QUEUED
+<span class="danger">status: FAILED</span>
+
+<span class="dim">$</span> backline diff dc1aad4c-48b7-44f8-9849-6df62de09d8a
+[NEWLY_FAILING]
+<span class="danger">- broken-endpoint (Broken endpoint) null -&gt; FAILED</span>
+
+[NEWLY_PASSING]
+<span class="success">- get-user (Fetch user) null -&gt; PASSED</span>
+<span class="success">- health (Health check) null -&gt; PASSED</span></code></pre>
+          <p class="evidence-note">Verbatim CLI output from the documented Docker demo.</p>
+        </section>
       </section>
 
       <section class="system-band" aria-label="Backline system boundary">
@@ -64,10 +77,32 @@
           <h2 id="report-title">Generated Markdown reports show what failed.</h2>
           <p>Backline writes a reviewable report from stored API data: run status, check counts, failures, latency, and comparison context.</p>
         </div>
-        <figure class="demo-capture report-capture reveal" data-reveal>
-          <img src="/demo/markdown-report.webp" width="1360" height="900" alt="Generated Backline Markdown report for sample-api showing a failed run with two passed and one failed check." loading="lazy" />
-          <figcaption>Generated Markdown report from the same failed sample run.</figcaption>
-        </figure>
+        <section class="evidence-window report-output reveal" aria-label="Authentic generated Backline Markdown report" data-reveal>
+          <div class="evidence-window-bar"><span>backline report</span><span>sample-api</span></div>
+          <pre><code># Backline Run Report
+
+## Run summary
+- **Project**: sample-api (`sample-api`)
+- **Environment**: local
+- **Run ID**: dc1aad4c-48b7-44f8-9849-6df62de09d8a
+- **Status**: <span class="danger">FAILED</span>
+- **Attempt count**: 1
+
+## Check summary
+| Metric  | Count |
+| ------- | ----- |
+| Total   | 3     |
+| Passed  | 2     |
+| Failed  | 1     |
+| Errored | 0     |
+
+## Failed checks
+- **Result status**: <span class="danger">FAILED</span>
+- **HTTP status**: 500
+- **Error code**: STATUS_MISMATCH
+- **Error message**: Expected status 200 but was 500</code></pre>
+          <p class="evidence-note">Verbatim Markdown report excerpt from the same failed sample run.</p>
+        </section>
       </section>
 
       <section class="workflow-section shell section" id="workflow" aria-labelledby="workflow-title">
