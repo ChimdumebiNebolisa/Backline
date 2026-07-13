@@ -27,3 +27,15 @@ checks:
     url: http://localhost:8081/broken
     expected_status: 200
     max_latency_ms: 500
+
+  - key: schema-change
+    name: Schema change endpoint
+    method: GET
+    url: http://localhost:8081/schema-change
+    expected_status: 200
+    max_latency_ms: 500
+    contract:
+      enabled: true
+      severity: warn
+      ignore_paths:
+        - $.meta.generated_at

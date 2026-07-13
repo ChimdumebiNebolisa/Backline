@@ -2,6 +2,7 @@ package dev.backline.config;
 
 import dev.backline.config.model.BacklineConfig;
 import dev.backline.config.model.CheckDefinition;
+import dev.backline.config.model.ContractSettings;
 import dev.backline.config.model.RunPolicy;
 import dev.backline.core.api.dto.AssertionDto;
 import dev.backline.core.check.HttpMethod;
@@ -47,14 +48,14 @@ class ConfigValidatorTest {
 
     @Test
     void rejectsNullMethod() {
-        CheckDefinition bad = new CheckDefinition("a", "n", null, "http://localhost/x", 200, null, null);
+        CheckDefinition bad = new CheckDefinition("a", "n", null, "http://localhost/x", 200, null, null, null);
         BacklineConfig cfg = new BacklineConfig("p", "e", List.of(bad), null);
         assertThatThrownBy(() -> ConfigValidator.validate(cfg)).isInstanceOf(ConfigParseException.class);
     }
 
     @Test
     void rejectsMalformedUrl() {
-        CheckDefinition bad = new CheckDefinition("a", "n", HttpMethod.GET, ":::not-a-uri", 200, null, null);
+        CheckDefinition bad = new CheckDefinition("a", "n", HttpMethod.GET, ":::not-a-uri", 200, null, null, null);
         BacklineConfig cfg = new BacklineConfig("p", "e", List.of(bad), null);
         assertThatThrownBy(() -> ConfigValidator.validate(cfg))
                 .isInstanceOf(ConfigParseException.class)
@@ -63,7 +64,7 @@ class ConfigValidatorTest {
 
     @Test
     void rejectsRelativeUrl() {
-        CheckDefinition bad = new CheckDefinition("a", "n", HttpMethod.GET, "/relative", 200, null, null);
+        CheckDefinition bad = new CheckDefinition("a", "n", HttpMethod.GET, "/relative", 200, null, null, null);
         BacklineConfig cfg = new BacklineConfig("p", "e", List.of(bad), null);
         assertThatThrownBy(() -> ConfigValidator.validate(cfg))
                 .isInstanceOf(ConfigParseException.class)
@@ -72,35 +73,35 @@ class ConfigValidatorTest {
 
     @Test
     void rejectsHostlessHttpUrl() {
-        CheckDefinition bad = new CheckDefinition("a", "n", HttpMethod.GET, "http:///health", 200, null, null);
+        CheckDefinition bad = new CheckDefinition("a", "n", HttpMethod.GET, "http:///health", 200, null, null, null);
         BacklineConfig cfg = new BacklineConfig("p", "e", List.of(bad), null);
         assertThatThrownBy(() -> ConfigValidator.validate(cfg)).isInstanceOf(ConfigParseException.class);
     }
 
     @Test
     void rejectsExpectedStatusTooLow() {
-        CheckDefinition bad = new CheckDefinition("a", "n", HttpMethod.GET, "http://localhost/x", 99, null, null);
+        CheckDefinition bad = new CheckDefinition("a", "n", HttpMethod.GET, "http://localhost/x", 99, null, null, null);
         BacklineConfig cfg = new BacklineConfig("p", "e", List.of(bad), null);
         assertThatThrownBy(() -> ConfigValidator.validate(cfg)).isInstanceOf(ConfigParseException.class);
     }
 
     @Test
     void rejectsExpectedStatusTooHigh() {
-        CheckDefinition bad = new CheckDefinition("a", "n", HttpMethod.GET, "http://localhost/x", 600, null, null);
+        CheckDefinition bad = new CheckDefinition("a", "n", HttpMethod.GET, "http://localhost/x", 600, null, null, null);
         BacklineConfig cfg = new BacklineConfig("p", "e", List.of(bad), null);
         assertThatThrownBy(() -> ConfigValidator.validate(cfg)).isInstanceOf(ConfigParseException.class);
     }
 
     @Test
     void rejectsMaxLatencyZero() {
-        CheckDefinition bad = new CheckDefinition("a", "n", HttpMethod.GET, "http://localhost/x", 200, 0, null);
+        CheckDefinition bad = new CheckDefinition("a", "n", HttpMethod.GET, "http://localhost/x", 200, 0, null, null);
         BacklineConfig cfg = new BacklineConfig("p", "e", List.of(bad), null);
         assertThatThrownBy(() -> ConfigValidator.validate(cfg)).isInstanceOf(ConfigParseException.class);
     }
 
     @Test
     void rejectsMaxLatencyNegative() {
-        CheckDefinition bad = new CheckDefinition("a", "n", HttpMethod.GET, "http://localhost/x", 200, -1, null);
+        CheckDefinition bad = new CheckDefinition("a", "n", HttpMethod.GET, "http://localhost/x", 200, -1, null, null);
         BacklineConfig cfg = new BacklineConfig("p", "e", List.of(bad), null);
         assertThatThrownBy(() -> ConfigValidator.validate(cfg)).isInstanceOf(ConfigParseException.class);
     }
@@ -116,7 +117,7 @@ class ConfigValidatorTest {
     @Test
     void rejectsAssertionWithoutPath() {
         CheckDefinition bad =
-                new CheckDefinition("a", "n", HttpMethod.GET, "http://localhost/x", 200, null, List.of(new AssertionDto(null, 1, null)));
+                new CheckDefinition("a", "n", HttpMethod.GET, "http://localhost/x", 200, null, List.of(new AssertionDto(null, 1, null)), null);
         BacklineConfig cfg = new BacklineConfig("p", "e", List.of(bad), null);
         assertThatThrownBy(() -> ConfigValidator.validate(cfg)).isInstanceOf(ConfigParseException.class);
     }
@@ -130,7 +131,7 @@ class ConfigValidatorTest {
                 "http://localhost/x",
                 200,
                 null,
-                List.of(new AssertionDto("$.x", null, null)));
+                List.of(new AssertionDto("$.x", null, null)), null);
         BacklineConfig cfg = new BacklineConfig("p", "e", List.of(bad), null);
         assertThatThrownBy(() -> ConfigValidator.validate(cfg)).isInstanceOf(ConfigParseException.class);
     }
@@ -144,7 +145,7 @@ class ConfigValidatorTest {
                 "http://localhost/x",
                 200,
                 null,
-                List.of(new AssertionDto("$.x", 1, true)));
+                List.of(new AssertionDto("$.x", 1, true)), null);
         BacklineConfig cfg = new BacklineConfig("p", "e", List.of(bad), null);
         assertThatThrownBy(() -> ConfigValidator.validate(cfg))
                 .isInstanceOf(ConfigParseException.class)
@@ -168,12 +169,44 @@ class ConfigValidatorTest {
                 "http://localhost/x",
                 200,
                 null,
-                List.of(new AssertionDto("$.latency", null, null, null, null, null, null, 10.0, null, null)));
+                List.of(new AssertionDto("$.latency", null, null, null, null, null, null, 10.0, null, null)), null);
         BacklineConfig cfg = new BacklineConfig("p", "e", List.of(def), null);
         ConfigValidator.validate(cfg);
     }
 
+    @Test
+    void rejectsUnknownContractSeverity() {
+        CheckDefinition bad = new CheckDefinition(
+                "a",
+                "n",
+                HttpMethod.GET,
+                "http://localhost/x",
+                200,
+                null,
+                null,
+                new ContractSettings(true, "loud", List.of()));
+        assertThatThrownBy(() -> ConfigValidator.validate(new BacklineConfig("p", "e", List.of(bad), null)))
+                .isInstanceOf(ConfigParseException.class)
+                .hasMessageContaining("severity");
+    }
+
+    @Test
+    void rejectsInvalidIgnorePath() {
+        CheckDefinition bad = new CheckDefinition(
+                "a",
+                "n",
+                HttpMethod.GET,
+                "http://localhost/x",
+                200,
+                null,
+                null,
+                new ContractSettings(true, "warn", List.of("$.a[*]")));
+        assertThatThrownBy(() -> ConfigValidator.validate(new BacklineConfig("p", "e", List.of(bad), null)))
+                .isInstanceOf(ConfigParseException.class)
+                .hasMessageContaining("ignore path");
+    }
+
     private static CheckDefinition sampleCheck() {
-        return new CheckDefinition("a", "n", HttpMethod.GET, "http://localhost/x", 200, null, null);
+        return new CheckDefinition("a", "n", HttpMethod.GET, "http://localhost/x", 200, null, null, null);
     }
 }

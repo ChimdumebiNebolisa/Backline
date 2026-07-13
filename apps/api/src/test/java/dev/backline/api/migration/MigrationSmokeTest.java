@@ -48,6 +48,53 @@ class MigrationSmokeTest extends PostgresTestBase {
     }
 
     @Test
+    void responseContractColumnsExistAndAcceptNullableLegacyRows() {
+        assertThat(columnExists("checks", "contract_json")).isTrue();
+        assertThat(columnExists("check_results", "response_contract_json")).isTrue();
+        assertThat(columnExists("check_results", "response_contract_hash")).isTrue();
+        assertThat(columnExists("check_results", "response_contract_status")).isTrue();
+
+        ProjectEntity project = persistProject();
+        RunEntity run = runRepository.saveAndFlush(newRun(project.getId(), "idem-contract-" + UUID.randomUUID()));
+        CheckResultEntity legacy = newResult(run.getId(), "legacy");
+        checkResultRepository.saveAndFlush(legacy);
+        CheckResultEntity reloaded = checkResultRepository.findById(legacy.getId()).orElseThrow();
+        assertThat(reloaded.getResponseContractJson()).isNull();
+        assertThat(reloaded.getResponseContractHash()).isNull();
+        assertThat(reloaded.getResponseContractStatus()).isNull();
+
+        CheckResultEntity captured = newResult(run.getId(), "captured");
+        captured.setResponseContractJson(
+                "{\"version\":1,\"root_type\":\"object\",\"paths\":[],\"truncated\":false}");
+        captured.setResponseContractHash("abc");
+        captured.setResponseContractStatus("CAPTURED");
+        checkResultRepository.saveAndFlush(captured);
+
+        assertThatThrownBy(
+                        () ->
+                                jdbcTemplate.update(
+                                        """
+                                        update check_results
+                                        set response_contract_status = 'BOGUS'
+                                        where id = ?
+                                        """,
+                                        captured.getId()))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    private boolean columnExists(String table, String column) {
+        Integer count = jdbcTemplate.queryForObject(
+                """
+                select count(*) from information_schema.columns
+                where table_schema = 'public' and table_name = ? and column_name = ?
+                """,
+                Integer.class,
+                table,
+                column);
+        return count != null && count > 0;
+    }
+
+    @Test
     void duplicateProjectScopedCheckKeyViolatesUniqueConstraint() {
         ProjectEntity project = persistProject();
 

@@ -72,10 +72,40 @@ class SampleControllerTest {
     }
 
     @Test
-    void schemaChange_returnsRenamedField() {
+    void schemaChange_returnsStableShapeWithChangingValue() {
         ResponseEntity<Map<String, Object>> r =
                 restTemplate.exchange("/schema-change", HttpMethod.GET, null, MAP);
         assertThat(r.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(r.getBody()).containsEntry("id", 1).containsEntry("renamedField", "value");
+        assertThat(r.getBody())
+                .containsEntry("id", 1)
+                .containsEntry("name", "widget")
+                .containsKey("value");
+    }
+
+    @Test
+    void schemaChange_additiveModeAddsDisplayName() {
+        ResponseEntity<Map<String, Object>> r =
+                restTemplate.exchange("/schema-change?mode=additive", HttpMethod.GET, null, MAP);
+        assertThat(r.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(r.getBody()).containsKey("display_name");
+    }
+
+    @Test
+    void schemaChange_modeEndpointSwitchesDefault() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        restTemplate.exchange(
+                "/schema-change/mode",
+                HttpMethod.POST,
+                new HttpEntity<>("{\"mode\":\"breaking-remove\"}", headers),
+                MAP);
+        ResponseEntity<Map<String, Object>> r =
+                restTemplate.exchange("/schema-change", HttpMethod.GET, null, MAP);
+        assertThat(r.getBody()).doesNotContainKey("name").containsKey("id");
+        restTemplate.exchange(
+                "/schema-change/mode",
+                HttpMethod.POST,
+                new HttpEntity<>("{\"mode\":\"stable\"}", headers),
+                MAP);
     }
 }

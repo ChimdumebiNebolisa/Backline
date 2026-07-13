@@ -18,12 +18,22 @@ Short path to prove the full stack end-to-end. Assumes **Docker Desktop** (or co
 
 8. **`backline sample serve`** *or* **`docker compose --profile demo up -d sample-api`** — Runs the sample HTTP service on **8081**. **Outcome:** `curl http://localhost:8081/health` returns JSON with `"status":"UP"`.
 
-9. **`cd examples/sample-api && backline run`** — Submits a run from the canonical config. **Outcome:** run completes with **at least one failed check** (`broken-endpoint` vs intentional 500) and passing checks for health and user fetch.
+9. **`cd examples/sample-api && backline run`** — Submits a run from the canonical config. **Outcome:** run completes with **at least one failed check** (`broken-endpoint` vs intentional 500) and passing checks for health, user fetch, and schema-change (stable observed contract).
 
 10. **`backline history`** — Lists recent runs from the API. **Outcome:** the new run appears with expected status.
 
-11. **`backline diff <runId>`** — Shows regression diff vs the previous completed run. **Outcome:** structured diff output (or a clear message when no previous baseline exists).
+11. **Optional observed-contract drift** — Switch the sample schema mode, then run again and diff:
+    ```bash
+    curl -s -X POST http://localhost:8081/schema-change/mode \
+      -H 'Content-Type: application/json' \
+      -d '{"mode":"breaking-remove"}'
+    backline run
+    backline diff <newRunId>
+    ```
+    **Outcome:** `schema-change` shows breaking contract drift (removed `$.name`) without claiming OpenAPI validation. Reset with `{"mode":"stable"}` when done.
 
-12. **`backline report <runId>`** — Writes a Markdown report and prints its path. **Outcome:** report file on disk contains run summary, check summary, failures, latency, diff, limitations link, and timestamp.
+12. **`backline diff <runId>`** — Shows regression diff vs the previous completed run. **Outcome:** structured diff output including contract sections when applicable (or a clear message when no previous baseline exists).
+
+13. **`backline report <runId>`** — Writes a Markdown report and prints its path. **Outcome:** report file on disk contains run summary, check summary, failures, latency, diff (with contract drift when present), limitations link, and timestamp.
 
 For raw HTTP debugging of the same data, use [api-examples.md](api-examples.md).

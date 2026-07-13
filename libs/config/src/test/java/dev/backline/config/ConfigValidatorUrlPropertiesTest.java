@@ -17,7 +17,7 @@ class ConfigValidatorUrlPropertiesTest {
 
     @Property
     void rejectsBadUrls(@ForAll("badUrls") String badUrl) {
-        CheckDefinition check = new CheckDefinition("a", "n", HttpMethod.GET, badUrl, 200, null, null);
+        CheckDefinition check = new CheckDefinition("a", "n", HttpMethod.GET, badUrl, 200, null, null, null);
         BacklineConfig config = new BacklineConfig("p", "e", List.of(check), null);
 
         assertThatThrownBy(() -> ConfigValidator.validate(config))
@@ -28,7 +28,7 @@ class ConfigValidatorUrlPropertiesTest {
     @Property
     void rejectsNonHttpSchemes(@ForAll("nonHttpSchemes") String scheme) {
         String url = scheme + "://example.com/path";
-        CheckDefinition check = new CheckDefinition("a", "n", HttpMethod.GET, url, 200, null, null);
+        CheckDefinition check = new CheckDefinition("a", "n", HttpMethod.GET, url, 200, null, null, null);
         BacklineConfig config = new BacklineConfig("p", "e", List.of(check), null);
 
         assertThatThrownBy(() -> ConfigValidator.validate(config))
