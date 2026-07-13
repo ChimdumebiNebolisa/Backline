@@ -83,6 +83,7 @@ Ownership:
 - Claims queued runs.
 - Executes HTTP checks.
 - Evaluates assertions.
+- Captures bounded observed JSON response contracts (when enabled) and writes their fingerprints with check results.
 - Writes check results.
 - Writes run events.
 - Finalizes run status.
@@ -296,6 +297,9 @@ error_code
 error_message
 response_preview
 assertions_json
+response_contract_json
+response_contract_hash
+response_contract_status
 created_at
 ```
 
@@ -307,7 +311,10 @@ check_id foreign key nullable only if check was removed after run snapshot
 (run_id, check_key) unique
 status allowed set
 latency_ms >= 0 when present
+response_contract_status allowed set when present (CAPTURED, NOT_JSON, INVALID_JSON, TRUNCATED, DISABLED, ERROR)
 ```
+
+Observed response contracts store bounded path/type structure only (never scalar values). Diff ownership remains on the API (`DiffService`); capture ownership is on `libs/executor` via the worker.
 
 Result statuses:
 
