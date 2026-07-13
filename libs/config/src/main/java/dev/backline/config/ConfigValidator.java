@@ -20,6 +20,10 @@ public final class ConfigValidator {
 
     private static final Pattern CHECK_KEY_PATTERN = Pattern.compile("[a-z0-9][a-z0-9-]{0,119}");
 
+    // Mirrors the API project slug rule (ProjectService.SLUG_PATTERN) so an invalid project name is
+    // caught locally by `backline run`/`backline doctor` instead of failing late on POST /api/projects.
+    private static final Pattern PROJECT_SLUG_PATTERN = Pattern.compile("[a-z0-9-]{1,120}");
+
     private ConfigValidator() {}
 
     public static void validate(BacklineConfig config) {
@@ -28,6 +32,11 @@ public final class ConfigValidator {
         }
         if (isBlank(config.project())) {
             throw new ConfigParseException("project must not be blank", "project");
+        }
+        if (!PROJECT_SLUG_PATTERN.matcher(config.project().trim()).matches()) {
+            throw new ConfigParseException(
+                    "project must be 1-120 characters using only lowercase letters, digits, or dashes",
+                    "project");
         }
         if (isBlank(config.environment())) {
             throw new ConfigParseException("environment must not be blank", "environment");

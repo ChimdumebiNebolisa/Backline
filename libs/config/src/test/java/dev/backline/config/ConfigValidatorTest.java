@@ -26,6 +26,20 @@ class ConfigValidatorTest {
     }
 
     @Test
+    void rejectsInvalidProjectSlug() {
+        BacklineConfig cfg = new BacklineConfig("Sample API", "e", List.of(sampleCheck()), null);
+        assertThatThrownBy(() -> ConfigValidator.validate(cfg))
+                .isInstanceOf(ConfigParseException.class)
+                .hasMessageContaining("project");
+    }
+
+    @Test
+    void acceptsValidProjectSlug() {
+        BacklineConfig cfg = new BacklineConfig("sample-api-1", "local", List.of(sampleCheck()), null);
+        ConfigValidator.validate(cfg);
+    }
+
+    @Test
     void rejectsEmptyChecks() {
         BacklineConfig cfg = new BacklineConfig("p", "e", List.of(), null);
         assertThatThrownBy(() -> ConfigValidator.validate(cfg)).isInstanceOf(ConfigParseException.class);
