@@ -8,5 +8,15 @@ test('has no accessibility violations in the configured WCAG checks', async ({ p
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
     .analyze();
 
+  const requiredRules = new Set([
+    'aria-command-name',
+    'button-name',
+    'color-contrast',
+    'focus-order-semantics',
+    'link-name',
+    'scrollable-region-focusable',
+  ]);
+
+  expect(results.violations.filter((violation) => requiredRules.has(violation.id))).toEqual([]);
   expect(results.violations).toEqual([]);
 });

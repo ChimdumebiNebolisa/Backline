@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "node --test tests/content.test.mjs",
-    "browser:test": "playwright test"
+    "browser:test": "playwright test",
+    "lighthouse": "lhci autorun"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
