@@ -41,10 +41,26 @@
             <a class="text-link" href="https://github.com/ChimdumebiNebolisa/Backline/tree/main/docs">Read the docs <span aria-hidden="true">+</span></a>
           </div>
         </div>
-        <div class="hero-note reveal" data-reveal>
-          <p class="eyebrow">01 / The useful question</p>
-          <p>Not only did the check pass? What changed since the last run?</p>
-          <a class="inline-link" href="#workflow">See the workflow <span aria-hidden="true">-></span></a>
+        <div class="hero-evidence reveal" data-reveal aria-label="Representative Backline CLI run">
+          <div class="hero-evidence-bar">
+            <span>sample-api / local</span>
+            <span class="hero-evidence-status">FAILED</span>
+          </div>
+          <div class="hero-evidence-body">
+            <p class="hero-evidence-kicker">Regression detected</p>
+            <h2>GET /users/{id}</h2>
+            <dl class="hero-evidence-facts">
+              <div><dt>baseline</dt><dd>LAST_PASSED</dd></div>
+              <div><dt>response</dt><dd>200 -> 500</dd></div>
+              <div><dt>policy</dt><dd>newly_failing=1</dd></div>
+            </dl>
+            <pre><code><span class="dim">$</span> backline diff &lt;runId&gt;
+<span class="accent">!</span> status_code expected 200, got 500</code></pre>
+          </div>
+          <div class="hero-evidence-footer">
+            <span>durable run evidence</span>
+            <a href="#workflow">Trace the workflow <span aria-hidden="true">-></span></a>
+          </div>
         </div>
       </section>
 

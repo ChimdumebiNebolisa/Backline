@@ -40,6 +40,8 @@ test('landing page includes accessible structure and repository links', () => {
 test('representative run output is labeled as representative', () => {
   assert.match(html, /representative output/);
   assert.match(html, /representative local history/);
+  assert.match(html, /Representative Backline CLI run/);
+  assert.match(html, /Regression detected/);
 });
 
 test('visible copy avoids typographic dash clutter', () => {
