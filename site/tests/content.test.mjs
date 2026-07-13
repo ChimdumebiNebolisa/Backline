@@ -29,12 +29,15 @@ test('landing page includes accessible structure and repository links', () => {
   for (const phrase of [
     'Skip to content',
     'aria-label="Primary navigation"',
+    'aria-label="backline - home"',
     'aria-controls="site-nav"',
     'https://github.com/ChimdumebiNebolisa/Backline',
   ]) {
     assert.ok(html.includes(phrase), `expected page to contain ${phrase}`);
   }
   assert.ok(css.includes('prefers-reduced-motion'), 'expected reduced-motion CSS behavior');
+  assert.ok(css.includes('--faint: #858184'), 'expected accessible faint text token');
+  assert.ok(css.includes('@fontsource-variable/geist'), 'expected self-hosted Geist font import');
 });
 
 test('representative run output is labeled as representative', () => {
