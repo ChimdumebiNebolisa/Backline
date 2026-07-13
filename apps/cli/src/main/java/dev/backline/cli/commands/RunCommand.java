@@ -132,6 +132,7 @@ public class RunCommand implements Callable<Integer> {
             UUID runId = UUID.fromString(run.id());
             System.out.println("RUN_ID: " + runId);
             if (noWait) {
+                System.out.println("Submitted; not waiting for completion (--no-wait).");
                 RunStatus st = run.status();
                 if (st == RunStatus.QUEUED) {
                     if (enforcePolicy) {
@@ -146,10 +147,10 @@ public class RunCommand implements Callable<Integer> {
                 }
                 return exitForTerminal(st);
             }
+            System.out.println("Waiting up to " + timeoutSeconds + "s for a terminal run status...");
             return waitForTerminal(client, runId, run.status(), enforcePolicy ? effectivePolicy : null);
         } catch (ApiClientException e) {
-            System.err.println("API error (" + e.httpStatus() + "): " + e.getMessage());
-            return 1;
+            return CliApiErrors.print(parent.apiUrl(), e);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             System.err.println("Interrupted");

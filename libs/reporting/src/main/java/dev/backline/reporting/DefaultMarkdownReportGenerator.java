@@ -1,5 +1,6 @@
 package dev.backline.reporting;
 
+import dev.backline.core.api.dto.AssertionResultDto;
 import dev.backline.core.api.dto.CheckResultDto;
 import dev.backline.core.api.dto.ProjectDto;
 import dev.backline.core.api.dto.ProjectSummaryDto;
@@ -57,8 +58,10 @@ public final class DefaultMarkdownReportGenerator implements MarkdownReportGener
 
         sb.append(section(
                 "Known limitations",
-                "See [docs/known-limitations.md](docs/known-limitations.md) for current product constraints "
-                        + "(single-tenant, assertion surface, preview bounds, and more)."));
+                "Backline is a local-first regression ledger: single-tenant (no auth), JSONPath assertions "
+                        + "limited to deterministic single-operator rules, response previews bounded (~4096 bytes), "
+                        + "and worker retries apply to runtime errors only (not failed assertions). "
+                        + "Full list: [docs/known-limitations.md](docs/known-limitations.md) in the repository."));
 
         sb.append("\n**Generated at (UTC)**: ")
                 .append(ISO_UTC.format(inputs.generatedAt()))
@@ -116,7 +119,40 @@ public final class DefaultMarkdownReportGenerator implements MarkdownReportGener
             b.append("- **HTTP status**: ").append(r.actualStatus() == null ? "—" : r.actualStatus()).append('\n');
             b.append("- **Latency (ms)**: ").append(r.latencyMs() == null ? "—" : r.latencyMs()).append('\n');
             b.append("- **Error code**: ").append(r.errorCode() == null ? "—" : r.errorCode()).append('\n');
-            b.append("- **Error message**: ").append(r.errorMessage() == null ? "—" : r.errorMessage()).append("\n\n");
+            b.append("- **Error message**: ").append(r.errorMessage() == null ? "—" : r.errorMessage()).append('\n');
+            b.append(failedAssertionsBody(r.assertions()));
+            b.append('\n');
+        }
+        return b.toString();
+    }
+
+    /**
+     * Renders the assertions that did not pass for a failed check. Assertion outcomes are the primary
+     * regression-debugging signal, so surfacing them keeps the report as informative as the API data
+     * already fetched by the CLI.
+     */
+    private static String failedAssertionsBody(List<AssertionResultDto> assertions) {
+        if (assertions == null || assertions.isEmpty()) {
+            return "";
+        }
+        List<AssertionResultDto> failed = assertions.stream().filter(a -> !a.passed()).toList();
+        if (failed.isEmpty()) {
+            return "";
+        }
+        StringBuilder b = new StringBuilder();
+        b.append("- **Failed assertions**:\n");
+        for (AssertionResultDto a : failed) {
+            b.append("  - `").append(safe(a.path())).append("`");
+            if (a.expectedEquals() != null) {
+                b.append(" expected `").append(a.expectedEquals()).append('`');
+            } else if (a.expectedExists() != null) {
+                b.append(" expected exists=`").append(a.expectedExists()).append('`');
+            }
+            b.append(", actual `").append(a.actual() == null ? "—" : a.actual()).append('`');
+            if (a.message() != null && !a.message().isBlank()) {
+                b.append(" (").append(a.message()).append(')');
+            }
+            b.append('\n');
         }
         return b.toString();
     }

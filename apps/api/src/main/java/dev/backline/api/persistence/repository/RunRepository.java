@@ -30,12 +30,14 @@ public interface RunRepository extends JpaRepository<RunEntity, UUID>, JpaSpecif
               and (r.status = dev.backline.core.run.RunStatus.PASSED or r.status = dev.backline.core.run.RunStatus.FAILED)
               and r.id <> :excludeId
               and r.finishedAt is not null
+              and r.queuedAt < :queuedBefore
             order by r.finishedAt desc
             """)
     List<RunEntity> findPreviousCompletedRun(
             @Param("projectId") UUID projectId,
             @Param("env") String env,
             @Param("excludeId") UUID excludeId,
+            @Param("queuedBefore") java.time.Instant queuedBefore,
             Pageable pageable);
 
     @Query(
@@ -46,12 +48,14 @@ public interface RunRepository extends JpaRepository<RunEntity, UUID>, JpaSpecif
               and r.status = dev.backline.core.run.RunStatus.PASSED
               and r.id <> :excludeId
               and r.finishedAt is not null
+              and r.queuedAt < :queuedBefore
             order by r.finishedAt desc
             """)
     List<RunEntity> findPreviousPassedRun(
             @Param("projectId") UUID projectId,
             @Param("env") String env,
             @Param("excludeId") UUID excludeId,
+            @Param("queuedBefore") java.time.Instant queuedBefore,
             Pageable pageable);
 
     long countByProjectIdAndStatus(UUID projectId, RunStatus status);

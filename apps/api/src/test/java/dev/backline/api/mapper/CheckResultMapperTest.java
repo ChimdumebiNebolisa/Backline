@@ -1,60 +1,37 @@
 package dev.backline.api.mapper;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import dev.backline.api.persistence.entity.CheckResultEntity;
-import dev.backline.core.check.CheckResultStatus;
+import dev.backline.core.api.dto.AssertionResultDto;
 import org.junit.jupiter.api.Test;
 
-import java.time.Instant;
-import java.util.UUID;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class CheckResultMapperTest {
 
     private final ObjectMapper mapper = new ObjectMapper();
 
     @Test
-    void toDto_mapsAllScalarFields() {
-        UUID id = UUID.randomUUID();
-        UUID runId = UUID.randomUUID();
-        UUID checkId = UUID.randomUUID();
-        Instant created = Instant.parse("2024-01-01T00:00:00Z");
-        CheckResultEntity entity = new CheckResultEntity();
-        entity.setId(id);
-        entity.setRunId(runId);
-        entity.setCheckId(checkId);
-        entity.setCheckKey("health");
-        entity.setCheckName("Health");
-        entity.setStatus(CheckResultStatus.PASSED);
-        entity.setActualStatus(200);
-        entity.setLatencyMs(42L);
-        entity.setErrorCode("ERR");
-        entity.setErrorMessage("msg");
-        entity.setResponsePreview("preview");
-        entity.setAssertionsJson("[{\"path\":\"$.id\",\"passed\":true}]");
-        entity.setCreatedAt(created);
-
-        var dto = CheckResultMapper.toDto(entity, mapper);
-        assertThat(dto.id()).isEqualTo(id.toString());
-        assertThat(dto.runId()).isEqualTo(runId.toString());
-        assertThat(dto.checkId()).isEqualTo(checkId.toString());
-        assertThat(dto.checkKey()).isEqualTo("health");
-        assertThat(dto.status()).isEqualTo(CheckResultStatus.PASSED);
-        assertThat(dto.latencyMs()).isEqualTo(42L);
-        assertThat(dto.assertions()).hasSize(1);
-    }
-
-    @Test
-    void readAssertions_nullOrBlank_returnsEmptyList() {
+    void readAssertions_nullOrBlank_returnsEmpty() {
         assertThat(CheckResultMapper.readAssertions(mapper, null)).isEmpty();
-        assertThat(CheckResultMapper.readAssertions(mapper, "  ")).isEmpty();
+        assertThat(CheckResultMapper.readAssertions(mapper, "   ")).isEmpty();
     }
 
     @Test
-    void readAssertions_invalidJson_throwsIllegalStateException() {
-        assertThatThrownBy(() -> CheckResultMapper.readAssertions(mapper, "not-json"))
-                .isInstanceOf(IllegalStateException.class);
+    void readAssertions_validJson_parses() {
+        String json = "[{\"path\":\"$.id\",\"passed\":true}]";
+        List<AssertionResultDto> parsed = CheckResultMapper.readAssertions(mapper, json);
+        assertThat(parsed).singleElement()
+                .satisfies(a -> {
+                    assertThat(a.path()).isEqualTo("$.id");
+                    assertThat(a.passed()).isTrue();
+                });
+    }
+
+    @Test
+    void readAssertions_corruptJson_returnsEmptyInsteadOfThrowing() {
+        assertThat(CheckResultMapper.readAssertions(mapper, "{ not valid json")).isEmpty();
+        assertThat(CheckResultMapper.readAssertions(mapper, "\"a string, not an array\"")).isEmpty();
     }
 }

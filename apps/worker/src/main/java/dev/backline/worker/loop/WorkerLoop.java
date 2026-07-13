@@ -187,10 +187,28 @@ public class WorkerLoop {
             return;
         }
 
-        RunStatus terminal = anyError ? RunStatus.ERROR : anyFailed ? RunStatus.FAILED : RunStatus.PASSED;
+        RunStatus terminal = resolveTerminalStatus(anyError, anyFailed);
         dao.persistResultsAndFinalize(run.runId(), rows, terminal);
         log.info("run.completed runId={} status={} workerId={} attempt={}",
                 run.runId(), terminal, props.getId(), run.attemptCount());
+    }
+
+    /**
+     * Aggregates per-check outcomes into a terminal run status.
+     *
+     * <p>An assertion or status/latency {@code FAILED} is a real regression signal and takes precedence
+     * over a transport/runtime {@code ERROR}: a run is only reported as {@code ERROR} when no check
+     * failed but at least one errored. This keeps genuine regressions from being masked as infrastructure
+     * problems, matching the guardrail that assertion failures and worker errors are distinct.
+     */
+    static RunStatus resolveTerminalStatus(boolean anyError, boolean anyFailed) {
+        if (anyFailed) {
+            return RunStatus.FAILED;
+        }
+        if (anyError) {
+            return RunStatus.ERROR;
+        }
+        return RunStatus.PASSED;
     }
 
     private void sleepQuietly(long millis) {

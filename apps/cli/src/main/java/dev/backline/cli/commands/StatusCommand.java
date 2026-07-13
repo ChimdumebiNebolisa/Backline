@@ -65,6 +65,7 @@ public class StatusCommand implements Callable<Integer> {
                 case PASSED -> 0;
                 case FAILED -> 1;
                 case ERROR -> 2;
+                case CANCELLED -> 3;
                 default -> 0;
             };
         }

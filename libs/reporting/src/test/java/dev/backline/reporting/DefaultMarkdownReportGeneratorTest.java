@@ -1,5 +1,6 @@
 package dev.backline.reporting;
 
+import dev.backline.core.api.dto.AssertionResultDto;
 import dev.backline.core.api.dto.CheckResultDto;
 import dev.backline.core.api.dto.ProjectDto;
 import dev.backline.core.api.dto.ProjectSummaryDto;
@@ -67,6 +68,40 @@ class DefaultMarkdownReportGeneratorTest {
                 .contains("## Failed checks")
                 .contains("`c2`")
                 .contains("Broken");
+    }
+
+    @Test
+    void failedCheck_rendersFailingAssertions() {
+        String runId = UUID.randomUUID().toString();
+        RunDto run = new RunDto(runId, "p1", "local", RunStatus.FAILED, "h", "cli", null, T0, T1, T2, 1);
+        ProjectDto project = new ProjectDto("p1", "demo", "Demo", T0, T0);
+        CheckResultDto failed = new CheckResultDto(
+                UUID.randomUUID().toString(),
+                runId,
+                null,
+                "get-user",
+                "Fetch user",
+                CheckResultStatus.FAILED,
+                200,
+                42L,
+                "ASSERTION_FAILED",
+                "One or more assertions failed",
+                null,
+                List.of(
+                        new AssertionResultDto("$.id", 1, null, 2, false, "Value mismatch at $.id"),
+                        new AssertionResultDto("$.email", null, true, "a@b.c", true, null)),
+                T2);
+        RunDiffDto diff = new RunDiffDto(runId, null, List.of());
+        String md = new DefaultMarkdownReportGenerator().generate(
+                new ReportInputs(run, project, List.of(failed), diff, null, Instant.parse("2024-01-02T15:00:00Z")));
+
+        assertThat(md)
+                .contains("**Failed assertions**")
+                .contains("`$.id`")
+                .contains("expected `1`")
+                .contains("actual `2`")
+                .contains("Value mismatch at $.id")
+                .doesNotContain("`$.email`");
     }
 
     @Test

@@ -50,11 +50,35 @@ class RunRepositoryTest extends PostgresTestBase {
 
         List<RunEntity> previous =
                 runRepository.findPreviousCompletedRun(
-                        project.getId(), env, current.getId(), PageRequest.of(0, 1));
+                        project.getId(), env, current.getId(), current.getQueuedAt(), PageRequest.of(0, 1));
 
         assertThat(previous).hasSize(1);
         assertThat(previous.getFirst().getId()).isEqualTo(newer.getId());
         assertThat(previous.getFirst().getStatus()).isEqualTo(RunStatus.FAILED);
+    }
+
+    @Test
+    void findPreviousCompletedRunExcludesRunsQueuedAfterCurrent() {
+        ProjectEntity project = persistProject();
+        String env = "local";
+
+        RunEntity current = newRun(project.getId(), RunStatus.RUNNING, null, Instant.parse("2024-01-15T00:00:00Z"));
+        runRepository.saveAndFlush(current);
+
+        RunEntity before =
+                newCompletedRun(project.getId(), env, RunStatus.PASSED, Instant.parse("2024-01-10T00:00:00Z"));
+        // Queued after current but finished later; must not be selected as the baseline.
+        RunEntity queuedAfter =
+                newCompletedRun(project.getId(), env, RunStatus.FAILED, Instant.parse("2024-01-20T00:00:00Z"));
+        runRepository.saveAndFlush(before);
+        runRepository.saveAndFlush(queuedAfter);
+
+        List<RunEntity> previous =
+                runRepository.findPreviousCompletedRun(
+                        project.getId(), env, current.getId(), current.getQueuedAt(), PageRequest.of(0, 1));
+
+        assertThat(previous).hasSize(1);
+        assertThat(previous.getFirst().getId()).isEqualTo(before.getId());
     }
 
     @Test
