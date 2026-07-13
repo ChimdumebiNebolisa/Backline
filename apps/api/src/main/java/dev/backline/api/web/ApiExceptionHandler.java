@@ -6,6 +6,7 @@ import dev.backline.core.error.ErrorCode;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -91,6 +92,23 @@ public class ApiExceptionHandler {
         return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
                 .body(ErrorResponse.of(ErrorCode.BAD_REQUEST,
                         "method not allowed: " + ex.getMethod()));
+    }
+
+    /**
+     * Maps a database uniqueness/constraint race to a structured 409 instead of a generic 500.
+     *
+     * <p>Concurrent submissions that collide on a unique constraint (for example the run idempotency
+     * key or a project slug created in parallel) surface here. Returning {@code CONFLICT} lets clients
+     * re-read the existing resource rather than treating a benign race as an internal error, and avoids
+     * leaking a stack trace.
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        log.warn("data integrity violation: {}", ex.getMostSpecificCause().getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.of(
+                        ErrorCode.CONFLICT,
+                        "resource already exists or conflicts with an existing record"));
     }
 
     @ExceptionHandler(ApiException.class)
