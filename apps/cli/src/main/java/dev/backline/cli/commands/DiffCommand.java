@@ -37,7 +37,7 @@ public class DiffCommand implements Callable<Integer> {
     private DiffBaselineStrategy baseline;
 
     @Option(
-            names = {"--fixed-run-id"},
+            names = {"--fixed-run-id", "--baseline-run-id"},
             description = "Required when --baseline=FIXED_RUN")
     private UUID fixedRunId;
 
@@ -63,8 +63,13 @@ public class DiffCommand implements Callable<Integer> {
         for (RunDiffEntry e : entries) {
             grouped.computeIfAbsent(e.changeType(), k -> new ArrayList<>()).add(e);
         }
-        System.out.println("diff for run " + diff.runId() + " vs " + diff.previousRunId()
-                + " (baseline=" + baseline + ")");
+        if (diff.previousRunId() == null) {
+            System.out.println("diff for run " + diff.runId() + ": no baseline run found (baseline="
+                    + baseline + ")");
+        } else {
+            System.out.println("diff for run " + diff.runId() + " vs " + diff.previousRunId()
+                    + " (baseline=" + baseline + ")");
+        }
         for (var type : RunDiffChangeType.values()) {
             List<RunDiffEntry> list = grouped.get(type);
             if (list == null || list.isEmpty()) {

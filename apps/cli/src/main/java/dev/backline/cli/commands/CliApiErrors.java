@@ -10,7 +10,8 @@ final class CliApiErrors {
     }
 
     static int print(String apiUrl, ApiClientException e) {
-        System.err.println("API error (" + e.httpStatus() + "): " + e.getMessage());
+        String suffix = e.field() != null && !e.field().isBlank() ? " (field: " + e.field() + ")" : "";
+        System.err.println("API error (" + e.httpStatus() + "): " + e.getMessage() + suffix);
         return 1;
     }
 

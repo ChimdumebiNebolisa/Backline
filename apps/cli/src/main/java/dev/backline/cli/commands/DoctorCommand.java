@@ -32,6 +32,12 @@ public class DoctorCommand implements Callable<Integer> {
     @Option(names = {"--check-sample-api"}, description = "Also probe sample API at " + SAMPLE_API_HEALTH_URL)
     private boolean checkSampleApi;
 
+    @Option(
+            names = {"-f", "--file"},
+            description = "Path to backline.yml to validate (default: backline.yml in the current directory)",
+            defaultValue = "backline.yml")
+    private Path file;
+
     @Override
     public Integer call() throws Exception {
         boolean ok = true;
@@ -59,17 +65,17 @@ public class DoctorCommand implements Callable<Integer> {
     }
 
     private boolean checkConfig() {
-        Path yml = Path.of("backline.yml");
+        Path yml = file;
         if (!Files.isRegularFile(yml)) {
-            System.out.println("OK backline.yml not present (skipped)");
+            System.out.println("OK " + yml + " not present (skipped)");
             return true;
         }
         try {
             new ConfigParser().parse(yml.toAbsolutePath().normalize());
-            System.out.println("OK backline.yml parses");
+            System.out.println("OK " + yml + " parses");
             return true;
         } catch (ConfigParseException e) {
-            System.out.println("FAIL backline.yml: " + e.getMessage());
+            System.out.println("FAIL " + yml + ": " + e.getMessage());
             if (e.field() != null && !e.field().isBlank()) {
                 System.out.println("  fix: correct the " + e.field() + " field in backline.yml");
             } else {
@@ -78,8 +84,8 @@ public class DoctorCommand implements Callable<Integer> {
             return false;
         } catch (Exception e) {
             String detail = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
-            System.out.println("FAIL backline.yml: " + detail);
-            System.out.println("  fix: repair YAML syntax or validation errors in backline.yml");
+            System.out.println("FAIL " + yml + ": " + detail);
+            System.out.println("  fix: repair YAML syntax or validation errors in " + yml);
             return false;
         }
     }
