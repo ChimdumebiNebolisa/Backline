@@ -13,6 +13,9 @@ import dev.backline.core.api.dto.AssertionDto;
 import dev.backline.core.api.dto.CheckDefinitionDto;
 import dev.backline.core.api.dto.CheckDto;
 import dev.backline.core.api.dto.CheckSyncRequest;
+import dev.backline.core.contract.ContractLimits;
+import dev.backline.core.contract.ContractPathSyntax;
+import dev.backline.core.contract.ContractSettingsDto;
 import dev.backline.core.validation.AssertionValidator;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -63,6 +66,7 @@ public class CheckSyncService {
         for (CheckDefinitionDto def : req.checks()) {
             String configHash = computeConfigHash(def);
             String assertionsJson = AssertionJsonMapper.toJsonOrNull(objectMapper, def.assertions());
+            String contractJson = contractToJsonOrNull(def.contract());
             Optional<CheckEntity> opt = checkRepository.findByProjectIdAndKey(projectId, def.key());
             CheckEntity entity = opt.orElseGet(() -> {
                 CheckEntity c = new CheckEntity();
@@ -77,6 +81,7 @@ public class CheckSyncService {
             entity.setMaxLatencyMs(def.maxLatencyMs());
             entity.setConfigHash(configHash);
             entity.setAssertionsJson(assertionsJson);
+            entity.setContractJson(contractJson);
             entity.setActive(true);
             entity = checkRepository.save(entity);
             result.add(CheckMapper.toDto(entity, objectMapper));
@@ -121,6 +126,47 @@ public class CheckSyncService {
                 throw new ValidationFailedException("max_latency_ms must be greater than zero when present", "checks");
             }
             validateAssertions(c.assertions());
+            validateContract(c.contract());
+        }
+    }
+
+    private static void validateContract(ContractSettingsDto contract) {
+        if (contract == null) {
+            return;
+        }
+        if (contract.severity() != null && !contract.severity().isBlank()) {
+            String severity = contract.severity().trim().toLowerCase();
+            if (!severity.equals("warn") && !severity.equals("block")) {
+                throw new ValidationFailedException("contract.severity must be warn or block", "checks.contract");
+            }
+        }
+        List<String> ignorePaths = contract.ignorePaths();
+        if (ignorePaths == null) {
+            return;
+        }
+        if (ignorePaths.size() > ContractLimits.MAX_IGNORE_PATHS) {
+            throw new ValidationFailedException(
+                    "contract.ignore_paths exceeds limit", "checks.contract.ignorePaths");
+        }
+        for (String path : ignorePaths) {
+            if (path == null || path.isBlank() || path.trim().length() > ContractLimits.MAX_IGNORE_PATH_LENGTH) {
+                throw new ValidationFailedException("invalid contract ignore path", "checks.contract.ignorePaths");
+            }
+            if (!ContractPathSyntax.isValid(path)) {
+                throw new ValidationFailedException(
+                        "contract ignore path must use $.a.b / [] syntax", "checks.contract.ignorePaths");
+            }
+        }
+    }
+
+    private String contractToJsonOrNull(ContractSettingsDto contract) {
+        if (contract == null) {
+            return null;
+        }
+        try {
+            return objectMapper.writeValueAsString(contract);
+        } catch (Exception e) {
+            throw new ValidationFailedException("could not serialize contract settings", "checks.contract");
         }
     }
 
@@ -196,6 +242,21 @@ public class CheckSyncService {
                 arr.add(n);
             }
             root.set("assertions", arr);
+            if (def.contract() != null) {
+                ObjectNode contractNode = objectMapper.createObjectNode();
+                if (def.contract().enabled() != null) {
+                    contractNode.put("enabled", def.contract().enabled());
+                }
+                if (def.contract().severity() != null) {
+                    contractNode.put("severity", def.contract().severity().trim().toLowerCase());
+                }
+                if (def.contract().ignorePaths() != null && !def.contract().ignorePaths().isEmpty()) {
+                    ArrayNode ignore = objectMapper.createArrayNode();
+                    def.contract().ignorePaths().stream().map(String::trim).sorted().forEach(ignore::add);
+                    contractNode.set("ignore_paths", ignore);
+                }
+                root.set("contract", contractNode);
+            }
             byte[] canonical = objectMapper.writeValueAsString(root).getBytes(StandardCharsets.UTF_8);
             MessageDigest md = MessageDigest.getInstance("SHA-256");
             return HexFormat.of().formatHex(md.digest(canonical));

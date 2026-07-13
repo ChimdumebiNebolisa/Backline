@@ -51,6 +51,10 @@ public class CheckEntity {
     @Column(name = "assertions_json", columnDefinition = "jsonb")
     private String assertionsJson;
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "contract_json", columnDefinition = "jsonb")
+    private String contractJson;
+
     @Column(name = "config_hash", nullable = false, length = 128)
     private String configHash;
 
@@ -147,6 +151,14 @@ public class CheckEntity {
 
     public void setAssertionsJson(String assertionsJson) {
         this.assertionsJson = assertionsJson;
+    }
+
+    public String getContractJson() {
+        return contractJson;
+    }
+
+    public void setContractJson(String contractJson) {
+        this.contractJson = contractJson;
     }
 
     public String getConfigHash() {

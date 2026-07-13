@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.backline.core.api.dto.AssertionDto;
 import dev.backline.core.check.HttpMethod;
+import dev.backline.core.contract.ContractSettingsDto;
 import dev.backline.core.run.RunEventType;
 import dev.backline.core.run.RunStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -126,6 +127,9 @@ public class WorkerRunDao {
                             error_message,
                             response_preview,
                             assertions_json,
+                            response_contract_json,
+                            response_contract_hash,
+                            response_contract_status,
                             created_at
                         ) VALUES (
                             gen_random_uuid(),
@@ -140,6 +144,9 @@ public class WorkerRunDao {
                             ?,
                             ?,
                             ?::jsonb,
+                            ?::jsonb,
+                            ?,
+                            ?,
                             now()
                         )
                         """,
@@ -153,7 +160,10 @@ public class WorkerRunDao {
                 row.errorCode(),
                 row.errorMessage(),
                 row.responsePreview(),
-                row.assertionsJson() == null ? null : row.assertionsJson());
+                row.assertionsJson() == null ? null : row.assertionsJson(),
+                row.responseContractJson() == null ? null : row.responseContractJson(),
+                row.responseContractHash(),
+                row.responseContractStatus() == null ? null : row.responseContractStatus().name());
     }
 
     public void finalizeRun(UUID runId, RunStatus terminalStatus) {
@@ -319,7 +329,7 @@ public class WorkerRunDao {
     public List<CheckRow> loadChecksForProject(UUID projectId) {
         return jdbcTemplate.query(
                 """
-                        SELECT id, key, name, method, url, expected_status, max_latency_ms, assertions_json, config_hash
+                        SELECT id, key, name, method, url, expected_status, max_latency_ms, assertions_json, config_hash, contract_json
                         FROM checks
                         WHERE project_id = ?
                           AND active = TRUE
@@ -337,7 +347,8 @@ public class WorkerRunDao {
                             rs.getInt("expected_status"),
                             rs.getObject("max_latency_ms") == null ? null : rs.getInt("max_latency_ms"),
                             assertions,
-                            rs.getString("config_hash"));
+                            rs.getString("config_hash"),
+                            parseContract(rs.getString("contract_json")));
                 },
                 projectId);
     }
@@ -350,6 +361,17 @@ public class WorkerRunDao {
             return objectMapper.readValue(json, new TypeReference<>() {});
         } catch (Exception ex) {
             throw new IllegalStateException("Failed to parse assertions_json", ex);
+        }
+    }
+
+    private ContractSettingsDto parseContract(String json) {
+        if (json == null || json.isBlank()) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(json, ContractSettingsDto.class);
+        } catch (Exception ex) {
+            throw new IllegalStateException("Failed to parse contract_json", ex);
         }
     }
 

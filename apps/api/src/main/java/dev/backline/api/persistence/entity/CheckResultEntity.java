@@ -59,6 +59,16 @@ public class CheckResultEntity {
     @Column(name = "assertions_json", columnDefinition = "jsonb")
     private String assertionsJson;
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "response_contract_json", columnDefinition = "jsonb")
+    private String responseContractJson;
+
+    @Column(name = "response_contract_hash", length = 64)
+    private String responseContractHash;
+
+    @Column(name = "response_contract_status", length = 20)
+    private String responseContractStatus;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -165,6 +175,30 @@ public class CheckResultEntity {
 
     public void setAssertionsJson(String assertionsJson) {
         this.assertionsJson = assertionsJson;
+    }
+
+    public String getResponseContractJson() {
+        return responseContractJson;
+    }
+
+    public void setResponseContractJson(String responseContractJson) {
+        this.responseContractJson = responseContractJson;
+    }
+
+    public String getResponseContractHash() {
+        return responseContractHash;
+    }
+
+    public void setResponseContractHash(String responseContractHash) {
+        this.responseContractHash = responseContractHash;
+    }
+
+    public String getResponseContractStatus() {
+        return responseContractStatus;
+    }
+
+    public void setResponseContractStatus(String responseContractStatus) {
+        this.responseContractStatus = responseContractStatus;
     }
 
     public Instant getCreatedAt() {

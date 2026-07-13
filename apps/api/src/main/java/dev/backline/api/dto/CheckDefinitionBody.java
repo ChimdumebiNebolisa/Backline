@@ -2,6 +2,7 @@ package dev.backline.api.dto;
 
 import dev.backline.core.api.dto.AssertionDto;
 import dev.backline.core.check.HttpMethod;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -25,4 +26,6 @@ public record CheckDefinitionBody(
                 String url,
         @NotNull @Min(100) @Max(599) Integer expectedStatus,
         @Min(1) Integer maxLatencyMs,
-        List<AssertionDto> assertions) {}
+        List<AssertionDto> assertions,
+        @Valid ContractSettingsBody contract) {}
+
