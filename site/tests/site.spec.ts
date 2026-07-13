@@ -5,15 +5,13 @@ test('renders the landing page and primary paths on desktop', async ({ page }) =
 
   await expect(page).toHaveTitle('Backline | API regression history');
   await expect(page.getByRole('heading', { name: 'Regression history for APIs that change.' })).toBeVisible();
-  const terminalCapture = page.getByRole('img', { name: /failed broken-endpoint run and its diff/i });
-  const reportCapture = page.getByRole('img', { name: /two passed and one failed check/i });
+  const terminalOutput = page.getByRole('region', { name: 'Authentic Backline CLI output' });
+  const reportOutput = page.getByRole('region', { name: 'Authentic generated Backline Markdown report' });
 
-  await expect(terminalCapture).toBeVisible();
-  await expect(terminalCapture).toHaveAttribute('src', '/demo/failed-run-diff.webp');
-  await expect(reportCapture).toHaveAttribute('src', '/demo/markdown-report.webp');
-  expect(await terminalCapture.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true);
-  expect(await reportCapture.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true);
-  await expect(page.locator('[aria-label="Start locally"]')).toContainText('docker compose up --build -d');
+  await expect(terminalOutput).toContainText('broken-endpoint (Broken endpoint) null -> FAILED');
+  await expect(reportOutput).toContainText('Expected status 200 but was 500');
+  await expect(page.locator('img')).toHaveCount(0);
+  await expect(page.locator('[aria-label="Install Backline"]')).toContainText('./gradlew :apps:cli:installDist');
   await expect(page.getByRole('link', { name: /Open setup guide/ })).toHaveAttribute(
     'href',
     'https://github.com/ChimdumebiNebolisa/Backline/blob/main/README.md#quick-start',
