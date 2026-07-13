@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import test from 'node:test';
 
-const [html, css] = await Promise.all([
+const [html, css, terminalCapture, reportCapture] = await Promise.all([
   readFile(new URL('../index.html', import.meta.url), 'utf8'),
   readFile(new URL('../src/style.css', import.meta.url), 'utf8'),
+  stat(new URL('../public/demo/failed-run-diff.webp', import.meta.url)),
+  stat(new URL('../public/demo/markdown-report.webp', import.meta.url)),
 ]);
 
 test('landing page exposes the verified product narrative', () => {
@@ -13,13 +15,10 @@ test('landing page exposes the verified product narrative', () => {
     'backline history',
     'backline diff',
     'backline report',
-    'QUEUED',
-    'RUNNING',
-    'PASSED',
-    'FAILED',
     'exit 5',
     'PostgreSQL',
-    'No hosted monitoring',
+    'Hosted monitoring',
+    'What Backline does not do.',
   ]) {
     assert.ok(html.includes(phrase), `expected page to contain ${phrase}`);
   }
@@ -40,11 +39,14 @@ test('landing page includes accessible structure and repository links', () => {
   assert.ok(css.includes('@fontsource-variable/geist'), 'expected self-hosted Geist font import');
 });
 
-test('representative run output is labeled as representative', () => {
-  assert.match(html, /representative output/);
-  assert.match(html, /representative local history/);
-  assert.match(html, /Representative Backline CLI run/);
-  assert.match(html, /Regression detected/);
+test('landing page uses authentic demo captures and a direct setup path', () => {
+  assert.match(html, /\/demo\/failed-run-diff\.webp/);
+  assert.match(html, /\/demo\/markdown-report\.webp/);
+  assert.match(html, /docker compose up --build -d/);
+  assert.match(html, /README\.md#quick-start/);
+  assert.doesNotMatch(html, /Representative Backline CLI run|representative output|representative local history/);
+  assert.ok(terminalCapture.size > 0, 'expected terminal demo capture to be committed');
+  assert.ok(reportCapture.size > 0, 'expected Markdown report capture to be committed');
 });
 
 test('visible copy avoids typographic dash clutter', () => {
