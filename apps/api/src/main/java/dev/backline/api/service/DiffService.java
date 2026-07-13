@@ -85,6 +85,7 @@ public class DiffService {
                             current.getProjectId(),
                             current.getEnvironment(),
                             current.getId(),
+                            current.getQueuedAt(),
                             PageRequest.of(0, 1))
                     .stream()
                     .findFirst()
@@ -93,6 +94,7 @@ public class DiffService {
                             current.getProjectId(),
                             current.getEnvironment(),
                             current.getId(),
+                            current.getQueuedAt(),
                             PageRequest.of(0, 1))
                     .stream()
                     .findFirst()
@@ -193,26 +195,23 @@ public class DiffService {
             }
             return bothKnown(prev, cur, RunDiffChangeType.STILL_FAILING);
         }
-        if (ps == CheckResultStatus.PASSED && cs == CheckResultStatus.PASSED) {
-            if (!Objects.equals(prev.getActualStatus(), cur.getActualStatus())) {
-                return bothKnown(prev, cur, RunDiffChangeType.STATUS_CODE_CHANGED);
-            }
-            if (latencyChanged(prev.getLatencyMs(), cur.getLatencyMs())) {
-                return bothKnown(prev, cur, RunDiffChangeType.LATENCY_CHANGED);
-            }
-            if (!normalizeAssertions(prev.getAssertionsJson())
-                    .equals(normalizeAssertions(cur.getAssertionsJson()))) {
-                return bothKnown(prev, cur, RunDiffChangeType.ASSERTION_CHANGED);
-            }
-            return bothKnown(prev, cur, RunDiffChangeType.STILL_PASSING);
+        // Status is unchanged here (transitions returned above). Surface the most salient behavioral
+        // change first, then fall back to a still-passing/still-failing summary. Status code and
+        // assertion changes are reported even when a check stays failing so regressions in a broken
+        // endpoint are not hidden behind a generic STILL_FAILING label.
+        if (!Objects.equals(prev.getActualStatus(), cur.getActualStatus())) {
+            return bothKnown(prev, cur, RunDiffChangeType.STATUS_CODE_CHANGED);
         }
         if (latencyChanged(prev.getLatencyMs(), cur.getLatencyMs())) {
             return bothKnown(prev, cur, RunDiffChangeType.LATENCY_CHANGED);
         }
-        if (cs == CheckResultStatus.PASSED) {
-            return bothKnown(prev, cur, RunDiffChangeType.STILL_PASSING);
+        if (!normalizeAssertions(prev.getAssertionsJson())
+                .equals(normalizeAssertions(cur.getAssertionsJson()))) {
+            return bothKnown(prev, cur, RunDiffChangeType.ASSERTION_CHANGED);
         }
-        return bothKnown(prev, cur, RunDiffChangeType.STILL_FAILING);
+        return cs == CheckResultStatus.PASSED
+                ? bothKnown(prev, cur, RunDiffChangeType.STILL_PASSING)
+                : bothKnown(prev, cur, RunDiffChangeType.STILL_FAILING);
     }
 
     private static RunDiffEntry bothKnown(CheckResultEntity prev, CheckResultEntity cur, RunDiffChangeType change) {

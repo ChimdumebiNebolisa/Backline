@@ -118,12 +118,62 @@ class DiffServiceUnitTest {
         CheckResultEntity skipped = result(runId, "sk", CheckResultStatus.SKIPPED);
         when(runRepository.findById(runId)).thenReturn(Optional.of(current));
         when(checkResultRepository.findByRunId(runId)).thenReturn(List.of(skipped));
-        when(runRepository.findPreviousCompletedRun(any(), any(), any(), any(Pageable.class)))
+        when(runRepository.findPreviousCompletedRun(any(), any(), any(), any(), any(Pageable.class)))
                 .thenReturn(Collections.emptyList());
 
         var diff = diffService.computeDiff(runId);
         assertThat(diff.entries()).singleElement()
                 .satisfies(e -> assertThat(e.changeType()).isEqualTo(RunDiffChangeType.STILL_FAILING));
+    }
+
+    @Test
+    void computeDiff_bothFailingWithStatusCodeChange_reportsStatusCodeChanged() {
+        UUID runId = UUID.randomUUID();
+        UUID prevId = UUID.randomUUID();
+        UUID projectId = UUID.randomUUID();
+        RunEntity current = run(runId, projectId, "local");
+        RunEntity previous = run(prevId, projectId, "local");
+
+        CheckResultEntity prevResult = result(prevId, "api", CheckResultStatus.FAILED);
+        prevResult.setActualStatus(500);
+        CheckResultEntity curResult = result(runId, "api", CheckResultStatus.FAILED);
+        curResult.setActualStatus(404);
+
+        when(runRepository.findById(runId)).thenReturn(Optional.of(current));
+        when(checkResultRepository.findByRunId(runId)).thenReturn(List.of(curResult));
+        when(checkResultRepository.findByRunId(prevId)).thenReturn(List.of(prevResult));
+        when(runRepository.findPreviousCompletedRun(any(), any(), any(), any(), any(Pageable.class)))
+                .thenReturn(List.of(previous));
+
+        var diff = diffService.computeDiff(runId);
+        assertThat(diff.entries()).singleElement()
+                .satisfies(e -> assertThat(e.changeType()).isEqualTo(RunDiffChangeType.STATUS_CODE_CHANGED));
+    }
+
+    @Test
+    void computeDiff_bothFailingWithAssertionChange_reportsAssertionChanged() {
+        UUID runId = UUID.randomUUID();
+        UUID prevId = UUID.randomUUID();
+        UUID projectId = UUID.randomUUID();
+        RunEntity current = run(runId, projectId, "local");
+        RunEntity previous = run(prevId, projectId, "local");
+
+        CheckResultEntity prevResult = result(prevId, "api", CheckResultStatus.FAILED);
+        prevResult.setActualStatus(200);
+        prevResult.setAssertionsJson("[{\"path\":\"$.id\",\"passed\":true}]");
+        CheckResultEntity curResult = result(runId, "api", CheckResultStatus.FAILED);
+        curResult.setActualStatus(200);
+        curResult.setAssertionsJson("[{\"path\":\"$.id\",\"passed\":false}]");
+
+        when(runRepository.findById(runId)).thenReturn(Optional.of(current));
+        when(checkResultRepository.findByRunId(runId)).thenReturn(List.of(curResult));
+        when(checkResultRepository.findByRunId(prevId)).thenReturn(List.of(prevResult));
+        when(runRepository.findPreviousCompletedRun(any(), any(), any(), any(), any(Pageable.class)))
+                .thenReturn(List.of(previous));
+
+        var diff = diffService.computeDiff(runId);
+        assertThat(diff.entries()).singleElement()
+                .satisfies(e -> assertThat(e.changeType()).isEqualTo(RunDiffChangeType.ASSERTION_CHANGED));
     }
 
     @Test
