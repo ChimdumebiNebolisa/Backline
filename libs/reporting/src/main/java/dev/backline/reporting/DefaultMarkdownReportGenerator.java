@@ -58,8 +58,10 @@ public final class DefaultMarkdownReportGenerator implements MarkdownReportGener
 
         sb.append(section(
                 "Known limitations",
-                "See [docs/known-limitations.md](docs/known-limitations.md) for current product constraints "
-                        + "(single-tenant, assertion surface, preview bounds, and more)."));
+                "Backline is a local-first regression ledger: single-tenant (no auth), JSONPath assertions "
+                        + "limited to deterministic single-operator rules, response previews bounded (~4096 bytes), "
+                        + "and worker retries apply to runtime errors only (not failed assertions). "
+                        + "Full list: [docs/known-limitations.md](docs/known-limitations.md) in the repository."));
 
         sb.append("\n**Generated at (UTC)**: ")
                 .append(ISO_UTC.format(inputs.generatedAt()))
