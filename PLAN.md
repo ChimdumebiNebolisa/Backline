@@ -19,28 +19,28 @@ DROPPED
 ## Current status
 
 ```txt
-ACTIVE: Q8 (PostgresTestBase consolidation remaining)
+ACTIVE: none (next: Q6 remaining — raise libs/core line coverage to >= 50%)
 BLOCKED: Q12 (PRD update)
-DONE: Tasks 1-6, Q1-Q5, Q7, Q9 (partial — diff jqwik still missing), Q11 (partial), Q13 (embedded in e2e CI job); RC1
-INCOMPLETE / MISMARKED: Q6 coverage targets met in CI for api/worker but libs/core 47.5% < 50%; Q8 skip=0 in CI but duplicate PostgresTestBase remains; Q10 floors present but project.path key mismatch disables enforcement; CLI 55.1% < 60%
-PENDING: Q14 sign-off after Q6/Q8/Q9/Q10 closure
+DONE: Tasks 1-6, Q1-Q5, Q7, Q8, Q11 (partial), Q13 (embedded in e2e CI job); RC1
+INCOMPLETE: Q6 (core 47.5% < 50%); Q9 (diff jqwik missing); Q10 (coverage floor key mismatch; floors below target table); CLI 55.1% < 60%
+PENDING: Q14 sign-off after Q6/Q9/Q10 closure
 DROPPED: none
 ```
 
 ### Reconciliation evidence (2026-07-16)
 
-Source: GitHub Actions run `29292399224` on `main` (verify + e2e-demo both success).
+Source: GitHub Actions run `29292399224` on `main` (verify + e2e-demo both success), plus local Q8 consolidation verification on branch `cursor/backline-quality-roadmap-11e5`.
 
 | Check | Result |
 |-------|--------|
-| CI `skipped` | 0 (256 tests, 0 failures) |
-| E2E demo job | success (`scripts/ci-e2e-demo.sh`, perf smoke embedded) |
+| CI `skipped` | 0 (256 tests, 0 failures) — reconfirmed locally with `CI=true` |
+| E2E demo job | success (`scripts/ci-e2e-demo.sh`, perf smoke embedded) — reconfirmed locally |
 | API line / branch | 86.6% / 61.7% |
 | Worker line | 89.6% |
 | CLI line | 55.1% (below Q10 floor target 60%) |
 | libs/core line | 47.5% (below Q6/Q10 target 50%) |
 | sample-api / reporting line | 66.7% / 82.1% |
-| `PostgresTestBase` classes | **2 remain** (`persistence/` + `support/`) — Q8 exit criterion unmet |
+| `PostgresTestBase` classes | **1** (`support/PostgresTestBase` only) — Q8 consolidation complete |
 | JaCoCo `coverageMinimums` | map keys `apps:api` do not match `project.path` `:apps:api` → floors resolve to **0.0** (Q10 incomplete) |
 | Diff jqwik | absent (Q9 exit criterion: one jqwik class for diff baselines) |
 
@@ -165,7 +165,7 @@ Q5  E2E demo in CI (Q5a demo path + Q5b extended smoke)
 | — | Q3 ArchUnit enforcement | DONE | — | — | `ArchitectureTest` passes |
 | — | Q4 CI coverage gates | DONE | — | — | `./gradlew check` + CI green |
 | 1 | **Q5** E2E demo in CI (Q5a + Q5b) | DONE | Q4 | G1 | CI run 29292399224 e2e-demo success |
-| 2 | **Q8** Zero skipped tests in CI | ACTIVE | Q5 | G2 | `CI=true` skipped=0 done; **PostgresTestBase consolidation remaining** |
+| 2 | **Q8** Zero skipped tests in CI | DONE | Q5 | G2 | `CI=true` skipped=0; single `support/PostgresTestBase` |
 | 3 | **Q6** API + worker/core coverage | INCOMPLETE | Q5, Q8 | G3, G4 | API/worker met; core 47.5% < 50% |
 | 4a | **Q9** Property + mutation tests | INCOMPLETE | Q6 | G5 | jqwik on executor/config/policy; diff baselines missing |
 | 4b | **Q11** Security / redaction tests | DONE | Q6 | G6 | guardrails + preview/property tests green in CI |
@@ -223,7 +223,7 @@ Q9 and Q11 (PR E/F) may swap order; do not merge both in parallel on one branch.
 
 ### Immediate next action
 
-**Finish Q8:** delete duplicate `persistence/PostgresTestBase` and route all API integration tests through `support/PostgresTestBase`. Do not activate Q6 remaining work until Q8 exit criteria are fully met.
+**Activate Q6 remaining work:** raise `libs/core` line coverage from 47.5% to >= 50% (Q6f DTO/enum serialization). Do not start Q9/Q10 until Q6 exit criteria are fully met.
 
 ---
 
