@@ -19,11 +19,30 @@ DROPPED
 ## Current status
 
 ```txt
-ACTIVE: none
+ACTIVE: none (next: Q6 remaining — raise libs/core line coverage to >= 50%)
 BLOCKED: Q12 (PRD update)
-DONE: Tasks 1-6, Q1-Q11, Q13 (embedded in e2e CI job); RC1 (observed JSON response-contract drift); Q14 pending CI verification
+DONE: Tasks 1-6, Q1-Q5, Q7, Q8, Q11 (partial), Q13 (embedded in e2e CI job); RC1
+INCOMPLETE: Q6 (core 47.5% < 50%); Q9 (diff jqwik missing); Q10 (coverage floor key mismatch; floors below target table); CLI 55.1% < 60%
+PENDING: Q14 sign-off after Q6/Q9/Q10 closure
 DROPPED: none
 ```
+
+### Reconciliation evidence (2026-07-16)
+
+Source: GitHub Actions run `29292399224` on `main` (verify + e2e-demo both success), plus local Q8 consolidation verification on branch `cursor/backline-quality-roadmap-11e5`.
+
+| Check | Result |
+|-------|--------|
+| CI `skipped` | 0 (256 tests, 0 failures) — reconfirmed locally with `CI=true` |
+| E2E demo job | success (`scripts/ci-e2e-demo.sh`, perf smoke embedded) — reconfirmed locally |
+| API line / branch | 86.6% / 61.7% |
+| Worker line | 89.6% |
+| CLI line | 55.1% (below Q10 floor target 60%) |
+| libs/core line | 47.5% (below Q6/Q10 target 50%) |
+| sample-api / reporting line | 66.7% / 82.1% |
+| `PostgresTestBase` classes | **1** (`support/PostgresTestBase` only) — Q8 consolidation complete |
+| JaCoCo `coverageMinimums` | map keys `apps:api` do not match `project.path` `:apps:api` → floors resolve to **0.0** (Q10 incomplete) |
+| Diff jqwik | absent (Q9 exit criterion: one jqwik class for diff baselines) |
 
 ### RC1 — Observed JSON response-contract drift — DONE
 
@@ -35,21 +54,21 @@ DROPPED: none
 
 Authoritative coordinator view for closing the remaining quality gaps. Does **not** expand PRD scope. Only one step (Q5–Q13, or Q14 sign-off) may be **ACTIVE** at a time.
 
-### Baseline (post PR #10)
+### Baseline (reconciled 2026-07-16 from CI run 29292399224)
 
 | Dimension | Current | Target (9.0) |
 |-----------|---------|--------------|
-| Overall audit score | ~8.3 | >= 9.0 (see `docs/audit-playbook.md` §8 rubric) |
-| API line / branch coverage | 25.9% / 23.7% | >= 65% / >= 40% |
-| Worker line coverage | 42.6% | >= 55% |
-| CLI line coverage | 50.9% | >= 60% |
-| libs/core line coverage | 29.0% | >= 50% |
-| CI full-stack proof | none | demo + extended smoke green in Actions |
-| CI skipped tests | 0 in CI (verify) | remain 0; local skips documented |
-| Property / mutation tests | none | executor + config + policy + diff |
-| Operability | runbook exists | doctor hardened + policy profiles |
-| Enforced gates | `check` + guardrails | + E2E + ratcheting coverage + contract drift |
-| Contract drift checks | manual only | `./scripts/check-contract-drift.sh` |
+| Overall audit score | not signed off | >= 9.0 (see `docs/audit-playbook.md` §8 rubric) |
+| API line / branch coverage | 86.6% / 61.7% | >= 65% / >= 40% |
+| Worker line coverage | 89.6% | >= 55% |
+| CLI line coverage | 55.1% | >= 60% |
+| libs/core line coverage | 47.5% | >= 50% |
+| CI full-stack proof | e2e-demo green | demo + extended smoke green in Actions |
+| CI skipped tests | 0 | remain 0; local skips documented |
+| Property / mutation tests | jqwik on executor/config/policy; **diff missing** | executor + config + policy + diff |
+| Operability | doctor + policy profiles present | doctor hardened + policy profiles |
+| Enforced gates | `check` + guardrails + E2E + contract drift | + working coverage floors |
+| Contract drift checks | `./scripts/check-contract-drift.sh` in CI | same |
 
 ### Gaps → steps
 
@@ -145,18 +164,20 @@ Q5  E2E demo in CI (Q5a demo path + Q5b extended smoke)
 | — | Q2 API test expansion (initial) | DONE | — | — | API line 25.9%; `:apps:api:test` green |
 | — | Q3 ArchUnit enforcement | DONE | — | — | `ArchitectureTest` passes |
 | — | Q4 CI coverage gates | DONE | — | — | `./gradlew check` + CI green |
-| 1 | **Q5** E2E demo in CI (Q5a + Q5b) | BACKLOG | Q4 | G1 | `./scripts/ci-e2e-demo.sh` + CI job green |
-| 2 | **Q8** Zero skipped tests in CI | BACKLOG | Q5 | G2 | `CI=true` skipped=0; single PostgresTestBase |
-| 3 | **Q6** API + worker/core coverage | BACKLOG | Q5, Q8 | G3, G4 | API line >= 65%, branch >= 40%; worker >= 55%; core >= 50% |
-| 4a | **Q9** Property + mutation tests | BACKLOG | Q6 | G5 | jqwik green; PIT report-only OK |
-| 4b | **Q11** Security / redaction tests | BACKLOG | Q6 | G6 | guardrails + executor tests green |
-| 5 | **Q7** Policy profiles + doctor | BACKLOG | Q6, Q11 | G7 | CLI doctor/policy smoke tests |
-| 6 | **Q10** Coverage ratchet + dashboard | BACKLOG | Q6, Q9, Q7 | G8, G11 | module floors; `check-contract-drift.sh` |
-| 7 | **Q13** Perf smoke in CI | BACKLOG | Q5, Q10 | G9 | bash smoke job green (see Q13 platform) |
-| 8 | **Q12** Baseline UX | BACKLOG | PRD | G10 | baseline set/show + diff default |
+| 1 | **Q5** E2E demo in CI (Q5a + Q5b) | DONE | Q4 | G1 | CI run 29292399224 e2e-demo success |
+| 2 | **Q8** Zero skipped tests in CI | DONE | Q5 | G2 | `CI=true` skipped=0; single `support/PostgresTestBase` |
+| 3 | **Q6** API + worker/core coverage | INCOMPLETE | Q5, Q8 | G3, G4 | API/worker met; core 47.5% < 50% |
+| 4a | **Q9** Property + mutation tests | INCOMPLETE | Q6 | G5 | jqwik on executor/config/policy; diff baselines missing |
+| 4b | **Q11** Security / redaction tests | DONE | Q6 | G6 | guardrails + preview/property tests green in CI |
+| 5 | **Q7** Policy profiles + doctor | DONE | Q6, Q11 | G7 | `--policy`, `--check-sample-api`, CLI tests |
+| 6 | **Q10** Coverage ratchet + dashboard | INCOMPLETE | Q6, Q9, Q7 | G8, G11 | contract-drift in CI; **floor key mismatch**; floors below table |
+| 7 | **Q13** Perf smoke in CI | DONE | Q5, Q10* | G9 | `BACKLINE_RUN_PERF_SMOKE=true` in e2e-demo (*embedded ahead of full Q10) |
+| 8 | **Q12** Baseline UX | BLOCKED | PRD | G10 | baseline set/show + diff default |
 | 9 | **Q14** Re-audit sign-off | BACKLOG | Q5–Q11, Q13 | all | rubric §8: every dimension >= 9.0 |
 
 Q12 may be **DROPPED** with reason if PRD is not updated; Q14 still requires Q5–Q11 and Q13 DONE.
+
+\* Q13 landed embedded in the E2E job before Q10 floor enforcement was corrected; keep Q13 DONE but do not treat Q10 as satisfied.
 
 ### Per-step contract (summary)
 
@@ -202,7 +223,7 @@ Q9 and Q11 (PR E/F) may swap order; do not merge both in parallel on one branch.
 
 ### Immediate next action
 
-**Activate Q5.** See step detail below. Do not activate Q6 until Q5 and Q8 are DONE.
+**Activate Q6 remaining work:** raise `libs/core` line coverage from 47.5% to >= 50% (Q6f DTO/enum serialization). Do not start Q9/Q10 until Q6 exit criteria are fully met.
 
 ---
 
