@@ -3,7 +3,7 @@ package dev.backline.api.migration;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import dev.backline.api.persistence.PostgresTestBase;
+import dev.backline.api.support.PostgresTestBase;
 import dev.backline.api.persistence.entity.CheckEntity;
 import dev.backline.api.persistence.entity.CheckResultEntity;
 import dev.backline.api.persistence.entity.ProjectEntity;

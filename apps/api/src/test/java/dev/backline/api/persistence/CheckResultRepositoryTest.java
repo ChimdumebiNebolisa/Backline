@@ -1,5 +1,6 @@
 package dev.backline.api.persistence;
 
+import dev.backline.api.support.PostgresTestBase;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import dev.backline.api.persistence.entity.CheckEntity;

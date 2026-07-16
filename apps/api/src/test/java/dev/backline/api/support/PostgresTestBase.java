@@ -7,8 +7,11 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 /**
- * Spring Boot + shared Testcontainers PostgreSQL for HTTP-layer API tests
- * ({@link org.springframework.boot.test.web.client.TestRestTemplate}).
+ * Canonical Spring Boot + shared Testcontainers PostgreSQL base for all API integration tests.
+ *
+ * <p>Uses {@link SpringBootTest.WebEnvironment#RANDOM_PORT} so HTTP-layer tests can use
+ * {@link org.springframework.boot.test.web.client.TestRestTemplate}. Repository and service
+ * tests share the same base (Q8) to avoid a second container lifecycle and duplicate base class.
  */
 @SpringBootTest(classes = ApiApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 public abstract class PostgresTestBase {

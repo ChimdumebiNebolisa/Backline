@@ -58,9 +58,11 @@ Possible worker crash. Stale recovery requeues or marks `ERROR` based on retry p
 
 ### Testcontainers tests skipped locally
 
-Docker is required. Start Docker Desktop and rerun `./gradlew test`.
+Docker is required. Start Docker and rerun `./gradlew test`.
 
-In CI, skipped integration tests fail the build by design.
+API integration tests share one canonical base: `dev.backline.api.support.PostgresTestBase` (via `PostgresTestContainers`). Worker tests use `PostgresWorkerTestBase`.
+
+In CI (`CI=true`), missing Docker fails the build instead of skipping. `CI=true ./scripts/audit-strength.sh` also fails if any JUnit skip is reported.
 
 ## Inspecting a run
 

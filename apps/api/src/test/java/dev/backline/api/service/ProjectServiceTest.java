@@ -3,7 +3,7 @@ package dev.backline.api.service;
 import dev.backline.api.exception.ConflictException;
 import dev.backline.api.exception.NotFoundException;
 import dev.backline.api.exception.ValidationFailedException;
-import dev.backline.api.persistence.PostgresTestBase;
+import dev.backline.api.support.PostgresTestBase;
 import dev.backline.api.persistence.entity.ProjectEntity;
 import dev.backline.core.api.dto.CreateProjectRequest;
 import org.junit.jupiter.api.Test;
