@@ -19,26 +19,26 @@ DROPPED
 ## Current status
 
 ```txt
-ACTIVE: none (next: Q6 remaining — raise libs/core line coverage to >= 50%)
+ACTIVE: none (next: Q9 — add jqwik property tests for diff baselines)
 BLOCKED: Q12 (PRD update)
-DONE: Tasks 1-6, Q1-Q5, Q7, Q8, Q11 (partial), Q13 (embedded in e2e CI job); RC1
-INCOMPLETE: Q6 (core 47.5% < 50%); Q9 (diff jqwik missing); Q10 (coverage floor key mismatch; floors below target table); CLI 55.1% < 60%
-PENDING: Q14 sign-off after Q6/Q9/Q10 closure
+DONE: Tasks 1-6, Q1-Q8, Q11, Q13 (embedded in e2e CI job); RC1; Q6
+INCOMPLETE: Q9 (diff jqwik missing); Q10 (coverage floor key mismatch; floors below target table); CLI 55.1% < 60%
+PENDING: Q14 sign-off after Q9/Q10 closure
 DROPPED: none
 ```
 
-### Reconciliation evidence (2026-07-16)
+### Reconciliation evidence (2026-07-17)
 
-Source: GitHub Actions run `29292399224` on `main` (verify + e2e-demo both success), plus local Q8 consolidation verification on branch `cursor/backline-quality-roadmap-11e5`.
+Source: prior CI run `29292399224` on `main`, plus local Q6f verification on branch `cursor/backline-quality-roadmap-f4de` (`./gradlew :libs:core:test jacocoTestReport`).
 
 | Check | Result |
 |-------|--------|
-| CI `skipped` | 0 (256 tests, 0 failures) — reconfirmed locally with `CI=true` |
-| E2E demo job | success (`scripts/ci-e2e-demo.sh`, perf smoke embedded) — reconfirmed locally |
-| API line / branch | 86.6% / 61.7% |
-| Worker line | 89.6% |
+| CI `skipped` | 0 (prior main); Q6f core unit tests only this run |
+| E2E demo job | success on prior main (`scripts/ci-e2e-demo.sh`, perf smoke embedded) |
+| API line / branch | 86.6% / 61.7% (prior; unchanged this slice) |
+| Worker line | 89.6% (prior; unchanged this slice) |
 | CLI line | 55.1% (below Q10 floor target 60%) |
-| libs/core line | 47.5% (below Q6/Q10 target 50%) |
+| libs/core line / branch | **82.3% / 62.8%** (was 47.5% / 34.2%; Q6 exit met) |
 | sample-api / reporting line | 66.7% / 82.1% |
 | `PostgresTestBase` classes | **1** (`support/PostgresTestBase` only) — Q8 consolidation complete |
 | JaCoCo `coverageMinimums` | map keys `apps:api` do not match `project.path` `:apps:api` → floors resolve to **0.0** (Q10 incomplete) |
@@ -54,7 +54,7 @@ Source: GitHub Actions run `29292399224` on `main` (verify + e2e-demo both succe
 
 Authoritative coordinator view for closing the remaining quality gaps. Does **not** expand PRD scope. Only one step (Q5–Q13, or Q14 sign-off) may be **ACTIVE** at a time.
 
-### Baseline (reconciled 2026-07-16 from CI run 29292399224)
+### Baseline (reconciled 2026-07-17 from CI run 29292399224 + Q6f local)
 
 | Dimension | Current | Target (9.0) |
 |-----------|---------|--------------|
@@ -62,7 +62,7 @@ Authoritative coordinator view for closing the remaining quality gaps. Does **no
 | API line / branch coverage | 86.6% / 61.7% | >= 65% / >= 40% |
 | Worker line coverage | 89.6% | >= 55% |
 | CLI line coverage | 55.1% | >= 60% |
-| libs/core line coverage | 47.5% | >= 50% |
+| libs/core line coverage | **82.3%** | >= 50% |
 | CI full-stack proof | e2e-demo green | demo + extended smoke green in Actions |
 | CI skipped tests | 0 | remain 0; local skips documented |
 | Property / mutation tests | jqwik on executor/config/policy; **diff missing** | executor + config + policy + diff |
@@ -166,7 +166,7 @@ Q5  E2E demo in CI (Q5a demo path + Q5b extended smoke)
 | — | Q4 CI coverage gates | DONE | — | — | `./gradlew check` + CI green |
 | 1 | **Q5** E2E demo in CI (Q5a + Q5b) | DONE | Q4 | G1 | CI run 29292399224 e2e-demo success |
 | 2 | **Q8** Zero skipped tests in CI | DONE | Q5 | G2 | `CI=true` skipped=0; single `support/PostgresTestBase` |
-| 3 | **Q6** API + worker/core coverage | INCOMPLETE | Q5, Q8 | G3, G4 | API/worker met; core 47.5% < 50% |
+| 3 | **Q6** API + worker/core coverage | DONE | Q5, Q8 | G3, G4 | API/worker met; core line 82.3% / branch 62.8% |
 | 4a | **Q9** Property + mutation tests | INCOMPLETE | Q6 | G5 | jqwik on executor/config/policy; diff baselines missing |
 | 4b | **Q11** Security / redaction tests | DONE | Q6 | G6 | guardrails + preview/property tests green in CI |
 | 5 | **Q7** Policy profiles + doctor | DONE | Q6, Q11 | G7 | `--policy`, `--check-sample-api`, CLI tests |
@@ -223,7 +223,7 @@ Q9 and Q11 (PR E/F) may swap order; do not merge both in parallel on one branch.
 
 ### Immediate next action
 
-**Activate Q6 remaining work:** raise `libs/core` line coverage from 47.5% to >= 50% (Q6f DTO/enum serialization). Do not start Q9/Q10 until Q6 exit criteria are fully met.
+**Activate Q9:** add jqwik property tests for diff baseline / classification logic (executor/config/policy already covered). Do not start Q10 until Q9 exit criteria are met.
 
 ---
 
@@ -314,8 +314,11 @@ Q9 and Q11 (PR E/F) may swap order; do not merge both in parallel on one branch.
 2. `./scripts/audit-strength.sh` reports worker line >= 55%, core line >= 50%.
 3. `./scripts/ci-e2e-demo.sh` still green (no demo regression).
 
+**Status (2026-07-17):** DONE. Q6f raised `libs/core` line coverage from 47.5% to 82.3% (branch 62.8%) via DTO/enum serialization, assertion-validator, and envelope tests. API/worker targets were already met on prior main.
+
 **Verification:**
 ```bash
+./gradlew :libs:core:test jacocoTestReport
 ./gradlew :apps:api:test :apps:worker:test jacocoTestCoverageVerification
 ./scripts/audit-strength.sh
 ./scripts/ci-e2e-demo.sh
