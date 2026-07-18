@@ -29,20 +29,21 @@ DROPPED: none
 
 ### Reconciliation evidence (2026-07-18)
 
-Source: local Q9 verification on branch `cursor/backline-quality-roadmap-f801` (`./gradlew :apps:api:test --tests DiffServicePropertiesTest`; prior CI run `29292399224` on `main` for coverage baselines).
+Source: local Q9 verification on branch `cursor/backline-quality-roadmap-f801` (`CI=true ./gradlew clean check`; `./scripts/ci-e2e-demo.sh` with `BACKLINE_RUN_PERF_SMOKE=true`).
 
 | Check | Result |
 |-------|--------|
-| CI `skipped` | 0 (prior main); Q9 DiffService property tests this run |
-| E2E demo job | success on prior main (`scripts/ci-e2e-demo.sh`, perf smoke embedded) |
-| API line / branch | 86.6% / 61.7% (prior; unchanged this slice) |
-| Worker line | 89.6% (prior; unchanged this slice) |
+| CI `skipped` | **0** (`tests=295 failures=0 errors=0 skipped=0`) |
+| E2E demo | **success** locally (`scripts/ci-e2e-demo.sh`, perf smoke embedded) |
+| API line / branch | **86.8% / 63.7%** |
+| Worker line | 89.6% |
 | CLI line | 55.1% (below Q10 floor target 60%) |
 | libs/core line / branch | **82.3% / 62.8%** (Q6 exit met) |
 | sample-api / reporting line | 66.7% / 82.1% |
 | `PostgresTestBase` classes | **1** (`support/PostgresTestBase` only) — Q8 consolidation complete |
 | JaCoCo `coverageMinimums` | map keys `apps:api` do not match `project.path` `:apps:api` → floors resolve to **0.0** (Q10 incomplete) |
 | Diff jqwik | **present** — `DiffServicePropertiesTest` (latency, FIXED_RUN/LAST_PASSED/PREVIOUS_COMPLETED baselines, classification precedence, sorted entries) |
+| Guardrails / audit-strength | both green |
 
 ### RC1 — Observed JSON response-contract drift — DONE
 
