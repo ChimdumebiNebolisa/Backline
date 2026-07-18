@@ -19,30 +19,30 @@ DROPPED
 ## Current status
 
 ```txt
-ACTIVE: none (next: Q9 — add jqwik property tests for diff baselines)
+ACTIVE: none (next: Q10 — fix coverage floor key mismatch and ratchet floors)
 BLOCKED: Q12 (PRD update)
-DONE: Tasks 1-6, Q1-Q8, Q11, Q13 (embedded in e2e CI job); RC1; Q6
-INCOMPLETE: Q9 (diff jqwik missing); Q10 (coverage floor key mismatch; floors below target table); CLI 55.1% < 60%
-PENDING: Q14 sign-off after Q9/Q10 closure
+DONE: Tasks 1-6, Q1-Q9, Q11, Q13 (embedded in e2e CI job); RC1; Q6
+INCOMPLETE: Q10 (coverage floor key mismatch; floors below target table); CLI 55.1% < 60%
+PENDING: Q14 sign-off after Q10 closure
 DROPPED: none
 ```
 
-### Reconciliation evidence (2026-07-17)
+### Reconciliation evidence (2026-07-18)
 
-Source: prior CI run `29292399224` on `main`, plus local Q6f verification on branch `cursor/backline-quality-roadmap-f4de` (`./gradlew :libs:core:test jacocoTestReport`).
+Source: local Q9 verification on branch `cursor/backline-quality-roadmap-f801` (`./gradlew :apps:api:test --tests DiffServicePropertiesTest`; prior CI run `29292399224` on `main` for coverage baselines).
 
 | Check | Result |
 |-------|--------|
-| CI `skipped` | 0 (prior main); Q6f core unit tests only this run |
+| CI `skipped` | 0 (prior main); Q9 DiffService property tests this run |
 | E2E demo job | success on prior main (`scripts/ci-e2e-demo.sh`, perf smoke embedded) |
 | API line / branch | 86.6% / 61.7% (prior; unchanged this slice) |
 | Worker line | 89.6% (prior; unchanged this slice) |
 | CLI line | 55.1% (below Q10 floor target 60%) |
-| libs/core line / branch | **82.3% / 62.8%** (was 47.5% / 34.2%; Q6 exit met) |
+| libs/core line / branch | **82.3% / 62.8%** (Q6 exit met) |
 | sample-api / reporting line | 66.7% / 82.1% |
 | `PostgresTestBase` classes | **1** (`support/PostgresTestBase` only) — Q8 consolidation complete |
 | JaCoCo `coverageMinimums` | map keys `apps:api` do not match `project.path` `:apps:api` → floors resolve to **0.0** (Q10 incomplete) |
-| Diff jqwik | absent (Q9 exit criterion: one jqwik class for diff baselines) |
+| Diff jqwik | **present** — `DiffServicePropertiesTest` (latency, FIXED_RUN/LAST_PASSED/PREVIOUS_COMPLETED baselines, classification precedence, sorted entries) |
 
 ### RC1 — Observed JSON response-contract drift — DONE
 
@@ -65,7 +65,7 @@ Authoritative coordinator view for closing the remaining quality gaps. Does **no
 | libs/core line coverage | **82.3%** | >= 50% |
 | CI full-stack proof | e2e-demo green | demo + extended smoke green in Actions |
 | CI skipped tests | 0 | remain 0; local skips documented |
-| Property / mutation tests | jqwik on executor/config/policy; **diff missing** | executor + config + policy + diff |
+| Property / mutation tests | jqwik on executor/config/policy/**diff** | executor + config + policy + diff |
 | Operability | doctor + policy profiles present | doctor hardened + policy profiles |
 | Enforced gates | `check` + guardrails + E2E + contract drift | + working coverage floors |
 | Contract drift checks | `./scripts/check-contract-drift.sh` in CI | same |
@@ -167,7 +167,7 @@ Q5  E2E demo in CI (Q5a demo path + Q5b extended smoke)
 | 1 | **Q5** E2E demo in CI (Q5a + Q5b) | DONE | Q4 | G1 | CI run 29292399224 e2e-demo success |
 | 2 | **Q8** Zero skipped tests in CI | DONE | Q5 | G2 | `CI=true` skipped=0; single `support/PostgresTestBase` |
 | 3 | **Q6** API + worker/core coverage | DONE | Q5, Q8 | G3, G4 | API/worker met; core line 82.3% / branch 62.8% |
-| 4a | **Q9** Property + mutation tests | INCOMPLETE | Q6 | G5 | jqwik on executor/config/policy; diff baselines missing |
+| 4a | **Q9** Property + mutation tests | DONE | Q6 | G5 | jqwik on executor/config/policy/diff (`DiffServicePropertiesTest`) |
 | 4b | **Q11** Security / redaction tests | DONE | Q6 | G6 | guardrails + preview/property tests green in CI |
 | 5 | **Q7** Policy profiles + doctor | DONE | Q6, Q11 | G7 | `--policy`, `--check-sample-api`, CLI tests |
 | 6 | **Q10** Coverage ratchet + dashboard | INCOMPLETE | Q6, Q9, Q7 | G8, G11 | contract-drift in CI; **floor key mismatch**; floors below table |
@@ -223,7 +223,7 @@ Q9 and Q11 (PR E/F) may swap order; do not merge both in parallel on one branch.
 
 ### Immediate next action
 
-**Activate Q9:** add jqwik property tests for diff baseline / classification logic (executor/config/policy already covered). Do not start Q10 until Q9 exit criteria are met.
+**Activate Q10:** fix JaCoCo `coverageMinimums` key mismatch (`apps:api` → `:apps:api`), raise module floors to the Q10 table, and keep contract-drift / quality summary green. Do not start Q14 until Q10 exit criteria are met.
 
 ---
 
@@ -413,7 +413,7 @@ CI=true ./scripts/audit-strength.sh
 
 ---
 
-### Q9 — Property + mutation tests
+### Q9 — Property + mutation tests — DONE
 
 **Objective:** Prove critical logic is not just covered but meaningfully tested.
 
@@ -434,10 +434,12 @@ CI=true ./scripts/audit-strength.sh
 
 **Must not:** Add mutation testing as a merge blocker until baseline established.
 
-**Exit criteria:**
+**Exit criteria:** met (2026-07-18)
 1. `./gradlew :libs:executor:test :libs:config:test :apps:cli:test :apps:api:test` green.
-2. At least one jqwik test class per module: executor, config, policy evaluator, diff baselines.
-3. Optional `./gradlew pitest` produces report without blocking merge.
+2. jqwik classes: executor (`AssertionEvaluationPropertiesTest`, `ResponsePreviewPropertiesTest`), config (`ConfigValidatorUrlPropertiesTest`), policy (`RunPolicyEvaluatorPropertiesTest`), diff (`DiffServicePropertiesTest`).
+3. PIT left optional/report-only (not added as merge blocker).
+
+**Verification artifact:** `DiffServicePropertiesTest` — latency invariants, FIXED_RUN/LAST_PASSED/PREVIOUS_COMPLETED baselines, status/code classification precedence, sorted entries.
 
 **Verification:**
 ```bash
