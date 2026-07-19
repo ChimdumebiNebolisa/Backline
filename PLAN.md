@@ -177,7 +177,7 @@ Q5  E2E demo in CI (Q5a demo path + Q5b extended smoke)
 
 Q12 may be **DROPPED** with reason if PRD is not updated; Q14 still requires Q5–Q11 and Q13 DONE.
 
-\* Q13 landed embedded in the E2E job before Q10 floor enforcement was corrected; keep Q13 DONE but do not treat Q10 as satisfied.
+\* Q13 landed embedded in the E2E job before Q10 floor enforcement was corrected; Q10 floors are now enforced (2026-07-19).
 
 ### Per-step contract (summary)
 
