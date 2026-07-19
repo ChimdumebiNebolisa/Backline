@@ -189,6 +189,12 @@ Quality and runtime hardening checklist: [docs/audit-playbook.md](docs/audit-pla
 Cross-module contracts: [docs/contracts.md](docs/contracts.md).
 Operations runbook: [docs/runbook.md](docs/runbook.md).
 
+## Quality snapshot
+
+Coverage floors are enforced by `./gradlew check` (JaCoCo). Module line floors match the Q10 table in `PLAN.md`; API and worker also enforce branch floors (0.40 / 0.35). CI publishes a per-module coverage summary (including API branch) on every PR.
+
+Final sign-off uses the weighted rubric in [docs/audit-playbook.md §8](docs/audit-playbook.md) (Correctness, Coverage depth, Full-stack proof, Test rigor, Security / guardrails, Operability, Sustain / drift). Q14 records dated scores when every dimension is >= 9.0.
+
 ## Public site
 
 The standalone landing page lives in [`site/`](site/README.md). It is a Vite/TypeScript static site with its own lockfile and CI; it is not a Gradle module, does not render a dashboard, and does not require the API, worker, or PostgreSQL to build.
