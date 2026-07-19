@@ -29,17 +29,19 @@ DROPPED: none
 
 ### Reconciliation evidence (2026-07-19)
 
-Source: local Q10 verification on branch `cursor/backline-quality-roadmap-05c7` (focused module tests + coverage verification; full `CI=true ./gradlew clean check` / e2e / audit scripts run before merge).
+Source: local Q10 verification on branch `cursor/backline-quality-roadmap-05c7`.
 
 | Check | Result |
 |-------|--------|
+| `CI=true ./gradlew clean check` | **BUILD SUCCESSFUL**; `tests=307 failures=0 errors=0 skipped=0` |
 | JaCoCo `coverageMinimums` keys | **fixed** — keys use `project.path` (`:apps:api`, …); floors no longer resolve to 0.0 |
 | Module line floors | Q10 table enforced (`:apps:api` 0.65, `:apps:cli` 0.60, `:apps:sample-api` 0.85, `:apps:worker` 0.55, `:libs:config` 0.70, `:libs:core` 0.50, `:libs:executor` 0.74, `:libs:reporting` 0.90) |
 | Branch floors | `:apps:api` 0.40, `:apps:worker` 0.35 |
-| CLI / sample-api / reporting line (post-tests) | **61.2% / 96.3% / 95.8%** |
+| Measured coverage (audit-strength) | API 86.8%/63.7%; CLI 61.2%; sample-api 96.3%; worker 89.6%/71.1%; config 71.5%; core 82.3%; executor 78.0%; reporting 95.8% |
 | CI coverage summary | prints line (+ branch when present) and appends to `GITHUB_STEP_SUMMARY` |
 | README | Quality snapshot references audit-playbook §8 |
-| Contract drift script | present in `./gradlew check` and CI |
+| Guardrails / contract-drift / audit-strength | all green |
+| `./scripts/ci-e2e-demo.sh` | **success** (`BACKLINE_RUN_PERF_SMOKE=true`) |
 | Next | **Q14** re-audit sign-off (Q12 remains PRD-blocked / droppable) |
 
 ### RC1 — Observed JSON response-contract drift — DONE
@@ -168,7 +170,7 @@ Q5  E2E demo in CI (Q5a demo path + Q5b extended smoke)
 | 4a | **Q9** Property + mutation tests | DONE | Q6 | G5 | jqwik on executor/config/policy/diff (`DiffServicePropertiesTest`) |
 | 4b | **Q11** Security / redaction tests | DONE | Q6 | G6 | guardrails + preview/property tests green in CI |
 | 5 | **Q7** Policy profiles + doctor | DONE | Q6, Q11 | G7 | `--policy`, `--check-sample-api`, CLI tests |
-| 6 | **Q10** Coverage ratchet + dashboard | INCOMPLETE | Q6, Q9, Q7 | G8, G11 | contract-drift in CI; **floor key mismatch**; floors below table |
+| 6 | **Q10** Coverage ratchet + dashboard | DONE | Q6, Q9, Q7 | G8, G11 | keys fixed; floors at Q10 table + api/worker branch; CI summary + §8 link |
 | 7 | **Q13** Perf smoke in CI | DONE | Q5, Q10* | G9 | `BACKLINE_RUN_PERF_SMOKE=true` in e2e-demo (*embedded ahead of full Q10) |
 | 8 | **Q12** Baseline UX | BLOCKED | PRD | G10 | baseline set/show + diff default |
 | 9 | **Q14** Re-audit sign-off | BACKLOG | Q5–Q11, Q13 | all | rubric §8: every dimension >= 9.0 |
@@ -221,7 +223,7 @@ Q9 and Q11 (PR E/F) may swap order; do not merge both in parallel on one branch.
 
 ### Immediate next action
 
-**Activate Q10:** fix JaCoCo `coverageMinimums` key mismatch (`apps:api` → `:apps:api`), raise module floors to the Q10 table, and keep contract-drift / quality summary green. Do not start Q14 until Q10 exit criteria are met.
+**Activate Q14:** run the full re-audit (`./gradlew clean check`, guardrails, contract-drift, audit-strength, `ci-e2e-demo.sh`), score rubric §8, and either DROP Q12 with reason or leave it BLOCKED. Do not start new product features.
 
 ---
 
@@ -447,7 +449,7 @@ CI=true ./scripts/audit-strength.sh
 
 ---
 
-### Q10 — Coverage ratchet + quality dashboard
+### Q10 — Coverage ratchet + quality dashboard — DONE
 
 **Objective:** Prevent coverage regression; make quality visible; catch doc/API drift.
 
@@ -485,6 +487,8 @@ CI=true ./scripts/audit-strength.sh
 2. CI publishes per-module line (and branch for api) coverage on every PR.
 3. `./scripts/check-contract-drift.sh` passes.
 4. `docs/audit-playbook.md` §8 rubric referenced from README or runbook.
+
+**Status (2026-07-19):** DONE. Fixed `coverageMinimums` / `coverageBranchMinimums` keys to `project.path` (`:apps:api`, …). Raised floors to the table above. Added CLI / sample-api / reporting tests so measured coverage clears the floors. CI coverage step prints floors and branch ratios and writes `GITHUB_STEP_SUMMARY`. README Quality snapshot links audit-playbook §8.
 
 **Verification:**
 ```bash
