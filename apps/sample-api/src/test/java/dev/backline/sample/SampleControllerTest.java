@@ -108,4 +108,43 @@ class SampleControllerTest {
                 new HttpEntity<>("{\"mode\":\"stable\"}", headers),
                 MAP);
     }
+
+    @Test
+    void schemaChange_breakingTypeModeUsesStringId() {
+        ResponseEntity<Map<String, Object>> r =
+                restTemplate.exchange("/schema-change?mode=breaking-type", HttpMethod.GET, null, MAP);
+        assertThat(r.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(r.getBody()).containsEntry("id", "1").containsKey("name");
+    }
+
+    @Test
+    void schemaChange_arrayShapeModeReturnsItems() {
+        ResponseEntity<Map<String, Object>> r =
+                restTemplate.exchange("/schema-change?mode=array-shape", HttpMethod.GET, null, MAP);
+        assertThat(r.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(r.getBody()).containsKey("items");
+    }
+
+    @Test
+    void schemaChange_ignoredMetaModeAddsMeta() {
+        ResponseEntity<Map<String, Object>> r =
+                restTemplate.exchange("/schema-change?mode=ignored-meta", HttpMethod.GET, null, MAP);
+        assertThat(r.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(r.getBody()).containsKey("meta");
+    }
+
+    @Test
+    void schemaChange_invalidJsonModeReturnsRawBody() {
+        ResponseEntity<String> r = restTemplate.getForEntity("/schema-change?mode=invalid-json", String.class);
+        assertThat(r.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(r.getBody()).contains("{not-json");
+    }
+
+    @Test
+    void schemaChangeMode_getReturnsCurrentMode() {
+        ResponseEntity<Map<String, Object>> r =
+                restTemplate.exchange("/schema-change/mode", HttpMethod.GET, null, MAP);
+        assertThat(r.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(r.getBody()).containsKey("mode");
+    }
 }

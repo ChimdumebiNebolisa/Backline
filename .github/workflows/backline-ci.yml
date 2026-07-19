@@ -33,13 +33,44 @@ jobs:
         if: always()
         run: |
           python3 - <<'PY'
-          import glob,xml.etree.ElementTree as ET
+          import glob, os, xml.etree.ElementTree as ET
+          lines = []
+          floors = {
+              ':apps:api': (0.65, 0.40),
+              ':apps:cli': (0.60, None),
+              ':apps:sample-api': (0.85, None),
+              ':apps:worker': (0.55, 0.35),
+              ':libs:config': (0.70, None),
+              ':libs:core': (0.50, None),
+              ':libs:executor': (0.74, None),
+              ':libs:reporting': (0.90, None),
+          }
           for p in sorted(glob.glob('**/build/reports/jacoco/test/jacocoTestReport.xml', recursive=True)):
-              mod=p.split('/build/')[0]
-              root=ET.parse(p).getroot()
-              c={e.attrib['type']:(int(e.attrib['missed']),int(e.attrib['covered'])) for e in root.findall('counter')}
-              miss,cov=c['LINE']; total=miss+cov; pct=(cov/total*100 if total else 0)
-              print(f'{mod}: line={pct:.1f}%')
+              mod = ':' + p.split('/build/')[0].replace('/', ':')
+              root = ET.parse(p).getroot()
+              c = {e.attrib['type']: (int(e.attrib['missed']), int(e.attrib['covered']))
+                   for e in root.findall('counter')}
+              lm, lc = c['LINE']; lt = lm + lc; lp = (lc / lt * 100 if lt else 0)
+              bm, bc = c.get('BRANCH', (0, 0)); bt = bm + bc
+              bp = (bc / bt * 100 if bt else None)
+              fl, fb = floors.get(mod, (None, None))
+              parts = [f'{mod}: line={lp:.1f}%']
+              if fl is not None:
+                  parts.append(f'(floor {fl*100:.0f}%)')
+              if bp is not None:
+                  parts.append(f'branch={bp:.1f}%')
+                  if fb is not None:
+                      parts.append(f'(floor {fb*100:.0f}%)')
+              line = ' '.join(parts)
+              print(line)
+              lines.append(line)
+          summary = os.environ.get('GITHUB_STEP_SUMMARY')
+          if summary:
+              with open(summary, 'a', encoding='utf-8') as f:
+                  f.write('## JaCoCo coverage\n\n')
+                  f.write('```\n')
+                  f.write('\n'.join(lines) + '\n')
+                  f.write('```\n')
           PY
 
       - name: Upload JUnit test results

@@ -19,31 +19,28 @@ DROPPED
 ## Current status
 
 ```txt
-ACTIVE: none (next: Q10 — fix coverage floor key mismatch and ratchet floors)
-BLOCKED: Q12 (PRD update)
-DONE: Tasks 1-6, Q1-Q9, Q11, Q13 (embedded in e2e CI job); RC1; Q6
-INCOMPLETE: Q10 (coverage floor key mismatch; floors below target table); CLI 55.1% < 60%
-PENDING: Q14 sign-off after Q10 closure
+ACTIVE: none (next: Q14 — re-audit sign-off)
+BLOCKED: Q12 (PRD update; may DROP without blocking Q14)
+DONE: Tasks 1-6, Q1-Q11, Q13 (embedded in e2e CI job); RC1; Q6; Q10
+INCOMPLETE: none
+PENDING: Q14 sign-off
 DROPPED: none
 ```
 
-### Reconciliation evidence (2026-07-18)
+### Reconciliation evidence (2026-07-19)
 
-Source: local Q9 verification on branch `cursor/backline-quality-roadmap-f801` (`CI=true ./gradlew clean check`; `./scripts/ci-e2e-demo.sh` with `BACKLINE_RUN_PERF_SMOKE=true`).
+Source: local Q10 verification on branch `cursor/backline-quality-roadmap-05c7` (focused module tests + coverage verification; full `CI=true ./gradlew clean check` / e2e / audit scripts run before merge).
 
 | Check | Result |
 |-------|--------|
-| CI `skipped` | **0** (`tests=295 failures=0 errors=0 skipped=0`) |
-| E2E demo | **success** locally (`scripts/ci-e2e-demo.sh`, perf smoke embedded) |
-| API line / branch | **86.8% / 63.7%** |
-| Worker line | 89.6% |
-| CLI line | 55.1% (below Q10 floor target 60%) |
-| libs/core line / branch | **82.3% / 62.8%** (Q6 exit met) |
-| sample-api / reporting line | 66.7% / 82.1% |
-| `PostgresTestBase` classes | **1** (`support/PostgresTestBase` only) — Q8 consolidation complete |
-| JaCoCo `coverageMinimums` | map keys `apps:api` do not match `project.path` `:apps:api` → floors resolve to **0.0** (Q10 incomplete) |
-| Diff jqwik | **present** — `DiffServicePropertiesTest` (latency, FIXED_RUN/LAST_PASSED/PREVIOUS_COMPLETED baselines, classification precedence, sorted entries) |
-| Guardrails / audit-strength | both green |
+| JaCoCo `coverageMinimums` keys | **fixed** — keys use `project.path` (`:apps:api`, …); floors no longer resolve to 0.0 |
+| Module line floors | Q10 table enforced (`:apps:api` 0.65, `:apps:cli` 0.60, `:apps:sample-api` 0.85, `:apps:worker` 0.55, `:libs:config` 0.70, `:libs:core` 0.50, `:libs:executor` 0.74, `:libs:reporting` 0.90) |
+| Branch floors | `:apps:api` 0.40, `:apps:worker` 0.35 |
+| CLI / sample-api / reporting line (post-tests) | **61.2% / 96.3% / 95.8%** |
+| CI coverage summary | prints line (+ branch when present) and appends to `GITHUB_STEP_SUMMARY` |
+| README | Quality snapshot references audit-playbook §8 |
+| Contract drift script | present in `./gradlew check` and CI |
+| Next | **Q14** re-audit sign-off (Q12 remains PRD-blocked / droppable) |
 
 ### RC1 — Observed JSON response-contract drift — DONE
 

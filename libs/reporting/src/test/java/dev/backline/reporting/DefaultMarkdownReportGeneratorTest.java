@@ -9,6 +9,10 @@ import dev.backline.core.api.dto.RunDiffDto;
 import dev.backline.core.api.dto.RunDiffEntry;
 import dev.backline.core.api.dto.RunDto;
 import dev.backline.core.check.CheckResultStatus;
+import dev.backline.core.contract.ContractChangeClassification;
+import dev.backline.core.contract.ContractChangeDetail;
+import dev.backline.core.contract.ContractChangeKind;
+import dev.backline.core.contract.ContractPathChange;
 import dev.backline.core.run.RunStatus;
 import org.junit.jupiter.api.Test;
 
@@ -174,6 +178,139 @@ class DefaultMarkdownReportGeneratorTest {
                 .contains("HTTP 200 → 404")
                 .contains("LATENCY CHANGED")
                 .contains("Δ +150 ms");
+    }
+
+    @Test
+    void diffSection_rendersContractChangeTypesAndPathDetails() {
+        RunDto run = new RunDto(
+                "r3", "p1", "local", RunStatus.PASSED, "h", "cli", null, T0, T1, T2, 1);
+        ProjectDto project = new ProjectDto("p1", "demo", "Demo", T0, T0);
+        ContractChangeDetail breaking = new ContractChangeDetail(
+                ContractChangeClassification.BREAKING,
+                "prev-hash",
+                "cur-hash",
+                List.of(
+                        new ContractPathChange(
+                                "$.name",
+                                ContractChangeKind.REMOVED,
+                                List.of("STRING"),
+                                List.of()),
+                        new ContractPathChange(
+                                "$.id",
+                                ContractChangeKind.TYPE_CHANGED,
+                                List.of("NUMBER"),
+                                List.of("STRING")),
+                        new ContractPathChange(
+                                "$.extra",
+                                ContractChangeKind.ADDED,
+                                List.of(),
+                                List.of("BOOLEAN"))),
+                true);
+        List<RunDiffEntry> entries = List.of(
+                new RunDiffEntry(
+                        "a",
+                        "A",
+                        RunDiffChangeType.CONTRACT_BREAKING,
+                        CheckResultStatus.PASSED,
+                        CheckResultStatus.PASSED,
+                        200,
+                        200,
+                        10L,
+                        10L,
+                        breaking),
+                new RunDiffEntry(
+                        "b",
+                        "B",
+                        RunDiffChangeType.CONTRACT_ADDITIVE,
+                        CheckResultStatus.PASSED,
+                        CheckResultStatus.PASSED,
+                        200,
+                        200,
+                        null,
+                        null,
+                        new ContractChangeDetail(
+                                ContractChangeClassification.ADDITIVE,
+                                "h1",
+                                "h2",
+                                List.of(),
+                                false)),
+                new RunDiffEntry(
+                        "c",
+                        "C",
+                        RunDiffChangeType.CONTRACT_NOISY,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                new RunDiffEntry(
+                        "d",
+                        "D",
+                        RunDiffChangeType.CONTRACT_UNAVAILABLE,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                new RunDiffEntry(
+                        "e",
+                        "E",
+                        RunDiffChangeType.NEWLY_ADDED,
+                        null,
+                        CheckResultStatus.PASSED,
+                        null,
+                        200,
+                        null,
+                        5L),
+                new RunDiffEntry(
+                        "f",
+                        "F",
+                        RunDiffChangeType.REMOVED,
+                        CheckResultStatus.PASSED,
+                        null,
+                        200,
+                        null,
+                        5L,
+                        null),
+                new RunDiffEntry(
+                        "g",
+                        "G",
+                        RunDiffChangeType.ASSERTION_CHANGED,
+                        CheckResultStatus.FAILED,
+                        CheckResultStatus.FAILED,
+                        200,
+                        200,
+                        10L,
+                        10L),
+                new RunDiffEntry(
+                        "h",
+                        "H",
+                        RunDiffChangeType.LATENCY_CHANGED,
+                        CheckResultStatus.PASSED,
+                        CheckResultStatus.PASSED,
+                        200,
+                        200,
+                        200L,
+                        100L));
+        RunDiffDto diff = new RunDiffDto("r3", "r-prev", entries);
+        String md = new DefaultMarkdownReportGenerator()
+                .generate(new ReportInputs(run, project, List.of(), diff, null, Instant.parse("2024-01-02T15:00:00Z")));
+
+        assertThat(md)
+                .contains("breaking observed response-contract drift")
+                .contains("additive observed response-contract drift")
+                .contains("noisy observed response-contract drift")
+                .contains("observed response-contract capture unavailable")
+                .contains("newly added in current run")
+                .contains("removed since previous run")
+                .contains("assertion outcome changed")
+                .contains("Δ -100 ms")
+                .contains("Contract: `BREAKING` (truncated)")
+                .contains("removed `$.name` (was STRING)")
+                .contains("changed `$.id` from NUMBER to STRING")
+                .contains("added `$.extra` (BOOLEAN)");
     }
 
     private static CheckResultDto result(

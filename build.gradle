@@ -20,15 +20,20 @@ allprojects {
         assertjVersion = '3.26.3'
         jqwikVersion = '1.8.5'
         jacksonVersion = '2.17.2'
+        // Keys must match Gradle project.path (leading ':'). Mismatched keys silently resolve to 0.0.
         coverageMinimums = [
-                'apps:api'       : 0.63,
-                'apps:cli'       : 0.55,
-                'apps:sample-api': 0.85,
-                'apps:worker'    : 0.42,
-                'libs:config'    : 0.70,
-                'libs:core'      : 0.25,
-                'libs:executor'  : 0.74,
-                'libs:reporting' : 0.90,
+                ':apps:api'       : 0.65,
+                ':apps:cli'       : 0.60,
+                ':apps:sample-api': 0.85,
+                ':apps:worker'    : 0.55,
+                ':libs:config'    : 0.70,
+                ':libs:core'      : 0.50,
+                ':libs:executor'  : 0.74,
+                ':libs:reporting' : 0.90,
+        ]
+        coverageBranchMinimums = [
+                ':apps:api'   : 0.40,
+                ':apps:worker': 0.35,
         ]
     }
 
@@ -74,6 +79,17 @@ subprojects {
                         counter = 'LINE'
                         value = 'COVEREDRATIO'
                         minimum = (rootProject.ext.coverageMinimums[project.path] ?: 0.0) as BigDecimal
+                    }
+                }
+                def branchFloor = rootProject.ext.coverageBranchMinimums[project.path]
+                if (branchFloor != null) {
+                    rule {
+                        element = 'BUNDLE'
+                        limit {
+                            counter = 'BRANCH'
+                            value = 'COVEREDRATIO'
+                            minimum = branchFloor as BigDecimal
+                        }
                     }
                 }
             }
