@@ -19,13 +19,27 @@ DROPPED
 ## Current status
 
 ```txt
-ACTIVE: none (next: Q14 — re-audit sign-off)
-BLOCKED: Q12 (PRD update; may DROP without blocking Q14)
-DONE: Tasks 1-6, Q1-Q11, Q13 (embedded in e2e CI job); RC1; Q6; Q10
+ACTIVE: none
+BLOCKED: none
+DONE: Tasks 1-6, Q1-Q11, Q13, Q14; RC1; Q6; Q10
 INCOMPLETE: none
-PENDING: Q14 sign-off
-DROPPED: none
+PENDING: none
+DROPPED: Q12 (PRD never updated to include persisted baseline UX; optional G10 remains out of product scope)
 ```
+
+### Reconciliation evidence (2026-07-20)
+
+Source: Q14 re-audit on branch `cursor/backline-quality-roadmap-61df` at `1ed0741` (main tip after Q10 #28) plus this sign-off.
+
+| Check | Result |
+| --- | --- |
+| Q5–Q11, Q13 | DONE (prior merges; see master tracker) |
+| Q12 | **DROPPED** — `PRD.md` never added `baseline set/show`; PLAN permits DROP without blocking Q14 |
+| `CI=true ./gradlew clean check` | BUILD SUCCESSFUL; tests=307 failures=0 skipped=0 |
+| Guardrails / contract-drift / audit-strength | all green |
+| `BACKLINE_RUN_PERF_SMOKE=true ./scripts/ci-e2e-demo.sh` | **success** |
+| Rubric §8 | overall **9.8**; every dimension >= 9.0 (see `docs/audit-playbook.md`) |
+| Next | none — quality roadmap complete |
 
 ### Reconciliation evidence (2026-07-19)
 
@@ -172,8 +186,8 @@ Q5  E2E demo in CI (Q5a demo path + Q5b extended smoke)
 | 5 | **Q7** Policy profiles + doctor | DONE | Q6, Q11 | G7 | `--policy`, `--check-sample-api`, CLI tests |
 | 6 | **Q10** Coverage ratchet + dashboard | DONE | Q6, Q9, Q7 | G8, G11 | keys fixed; floors at Q10 table + api/worker branch; CI summary + §8 link |
 | 7 | **Q13** Perf smoke in CI | DONE | Q5, Q10* | G9 | `BACKLINE_RUN_PERF_SMOKE=true` in e2e-demo (*embedded ahead of full Q10) |
-| 8 | **Q12** Baseline UX | BLOCKED | PRD | G10 | baseline set/show + diff default |
-| 9 | **Q14** Re-audit sign-off | BACKLOG | Q5–Q11, Q13 | all | rubric §8: every dimension >= 9.0 |
+| 8 | **Q12** Baseline UX | DROPPED | PRD | G10 | PRD never added persisted baseline UX; DROP permitted |
+| 9 | **Q14** Re-audit sign-off | DONE | Q5–Q11, Q13; Q12 DROPPED | all | rubric §8 signed 2026-07-20; overall 9.8 |
 
 Q12 may be **DROPPED** with reason if PRD is not updated; Q14 still requires Q5–Q11 and Q13 DONE.
 
@@ -223,7 +237,7 @@ Q9 and Q11 (PR E/F) may swap order; do not merge both in parallel on one branch.
 
 ### Immediate next action
 
-**Activate Q14:** run the full re-audit (`./gradlew clean check`, guardrails, contract-drift, audit-strength, `ci-e2e-demo.sh`), score rubric §8, and either DROP Q12 with reason or leave it BLOCKED. Do not start new product features.
+**None — quality roadmap complete.** Q14 signed off 2026-07-20 (see `docs/audit-playbook.md` §8 score table). Q12 DROPPED. Do not invent new product direction; only fix verified regressions or intentional PRD updates.
 
 ---
 
@@ -564,6 +578,8 @@ backline baseline set <id> && backline diff <newRunId>  # uses stored baseline
 
 If PRD is not updated by Q14, mark **DROPPED** with reason; does not block sign-off.
 
+**Status (2026-07-20):** DROPPED. Reason: `PRD.md` was never updated to list persisted baseline preference (`baseline set/show`) as in-scope. Diff continues to use request-time baseline flags. Does not block Q14.
+
 ---
 
 ### Q13 — Performance smoke in CI
@@ -641,6 +657,18 @@ CI=true ./scripts/audit-strength.sh
 ./scripts/check-contract-drift.sh
 # Score dimensions per docs/audit-playbook.md §8
 ```
+
+**Status (2026-07-20):** DONE. Q12 DROPPED (PRD never listed persisted `baseline set/show`). Local re-audit on `1ed0741` + this sign-off commit:
+
+| Command | Result |
+| --- | --- |
+| `CI=true ./gradlew clean check` | BUILD SUCCESSFUL; JUnit suites=73 tests=307 failures=0 errors=0 **skipped=0** |
+| `./scripts/check-guardrails.sh` | passed |
+| `./scripts/check-contract-drift.sh` | passed |
+| `CI=true ./scripts/audit-strength.sh` | passed; coverage below |
+| `BACKLINE_RUN_PERF_SMOKE=true ./scripts/ci-e2e-demo.sh` | EXIT 0 (Q5a + Q5b + Q13) |
+
+Coverage (JaCoCo via audit-strength): API 86.8%/63.7%, CLI 61.2%, sample-api 96.3%, worker 89.6%, config 71.5%, core 82.3%, executor 78.0%, reporting 95.8%. Rubric scores in `docs/audit-playbook.md` §8 (overall **9.8**).
 
 ## Parallel Execution Map
 
