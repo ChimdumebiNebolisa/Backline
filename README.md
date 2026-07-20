@@ -193,7 +193,7 @@ Operations runbook: [docs/runbook.md](docs/runbook.md).
 
 Coverage floors are enforced by `./gradlew check` (JaCoCo). Module line floors match the Q10 table in `PLAN.md`; API and worker also enforce branch floors (0.40 / 0.35). CI publishes a per-module coverage summary (including API branch) on every PR.
 
-Final sign-off uses the weighted rubric in [docs/audit-playbook.md §8](docs/audit-playbook.md) (Correctness, Coverage depth, Full-stack proof, Test rigor, Security / guardrails, Operability, Sustain / drift). Q14 records dated scores when every dimension is >= 9.0.
+**Q14 signed off 2026-07-20** using the weighted rubric in [docs/audit-playbook.md §8](docs/audit-playbook.md): overall **9.8** (every dimension >= 9.0). Q12 (persisted baseline UX) was **DROPPED** because it was never added to `PRD.md`.
 
 ## Public site
 

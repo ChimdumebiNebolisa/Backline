@@ -147,3 +147,27 @@ Use this rubric for Q14 re-audit sign-off. Score each dimension **0–10**. **Ov
 - **< 7:** Step not done; do not sign off Q14.
 
 Record scores in a dated table at the bottom of this file or in README "Quality snapshot" when Q14 completes.
+
+### Q14 sign-off (2026-07-20)
+
+**Verdict:** PASSED — every dimension >= 9.0; weighted overall **9.8**.
+
+| Dimension | Weight | Score | Evidence |
+|-----------|--------|-------|----------|
+| Correctness | 25% | 10.0 | `CI=true ./gradlew clean check` → 307 tests, 0 failures, 0 skipped; `BACKLINE_RUN_PERF_SMOKE=true ./scripts/ci-e2e-demo.sh` EXIT 0 |
+| Coverage depth | 20% | 10.0 | JaCoCo: API 86.8% line / 63.7% branch; worker 89.6%; CLI 61.2%; core 82.3% (all above Q6/Q10 floors) |
+| Full-stack proof | 15% | 10.0 | E2E Q5a (doctor → run → history → diff → Markdown report) + Q5b (JSON report, LAST_PASSED diff, `--enforce-policy`) + Q13 perf smoke |
+| Test rigor | 15% | 9.5 | jqwik properties: assertion evaluation, config URL validation, policy evaluation, DiffService baselines; `CI=true` skipped=0. Accepted risk: PIT remains report-only |
+| Security / guardrails | 10% | 9.5 | `./scripts/check-guardrails.sh` pass; `ResponsePreviewPropertiesTest`, redaction constants tests; no secret logging in verified paths |
+| Operability | 10% | 9.5 | `DoctorCommandTest` + policy profile / enforce-policy CLI tests; `docs/runbook.md` current |
+| Sustain / drift | 5% | 9.0 | Module JaCoCo floors enforced; `./scripts/check-contract-drift.sh` pass. Accepted risk: drift check is grep/heuristic (OpenAPI-generated contract testing remains out of PRD scope) |
+
+**Weighted overall:** \(10.0×0.25 + 10.0×0.20 + 10.0×0.15 + 9.5×0.15 + 9.5×0.10 + 9.5×0.10 + 9.0×0.05) = **9.775 ≈ 9.8**
+
+**Q12:** DROPPED — `PRD.md` was never updated to include persisted baseline preference (`baseline set/show`). Diff continues to use flag-selected baselines (`PREVIOUS_COMPLETED` / `LAST_PASSED`). Does not block sign-off.
+
+**Accepted risks (not defects):**
+
+- Grep-based contract-drift checks (not OpenAPI codegen).
+- Mutation testing (PIT) not a CI gate.
+- Persisted baseline UX (DROPPED Q12) remains unavailable until an intentional PRD change.
