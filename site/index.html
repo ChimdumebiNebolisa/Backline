@@ -199,6 +199,7 @@ status: QUEUED
           <div class="code-window-bar"><span>quick start</span><span>local</span></div>
           <pre><code><span class="dim">$</span> docker compose up --build -d
 <span class="dim">$</span> ./gradlew :apps:cli:installDist
+<span class="dim">$</span> export PATH="$PWD/apps/cli/build/install/backline/bin:$PATH"
 <span class="dim">$</span> backline doctor
 <span class="dim">$</span> cd examples/sample-api &amp;&amp; backline run
 <span class="dim">$</span> backline history

@@ -42,6 +42,8 @@ test('landing page includes accessible structure and repository links', () => {
 
 test('landing page uses authentic demo text and an install-first setup path', () => {
   assert.match(html, /\.\/gradlew :apps:cli:installDist/);
+  // installDist alone does not put `backline` on PATH; quick-start must match README.
+  assert.match(html, /export PATH="\$PWD\/apps\/cli\/build\/install\/backline\/bin:\$PATH"/);
   assert.match(html, /broken-endpoint \(Broken endpoint\) null -&gt; FAILED/);
   assert.match(html, /Expected status 200 but was 500/);
   assert.match(html, /README\.md#quick-start/);
