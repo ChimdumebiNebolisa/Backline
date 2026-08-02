@@ -263,6 +263,10 @@ Example:
 curl -sS http://localhost:8080/api/runs/a1b2c3d4-e5f6-7890-abcd-ef1234567890/diff
 ```
 
+When no baseline run exists, `previousRunId` is `null` and every check is still
+reported as `NEWLY_PASSING` or `NEWLY_FAILING`. Null-valued fields (such as the
+`previous*` fields) are omitted from each entry.
+
 Example:
 
 ```json
@@ -270,7 +274,24 @@ Example:
   "data": {
     "runId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
     "previousRunId": null,
-    "entries": []
+    "entries": [
+      {
+        "checkKey": "broken-endpoint",
+        "checkName": "Broken endpoint",
+        "changeType": "NEWLY_FAILING",
+        "currentStatus": "FAILED",
+        "currentActualStatus": 500,
+        "currentLatencyMs": 32
+      },
+      {
+        "checkKey": "health",
+        "checkName": "Health check",
+        "changeType": "NEWLY_PASSING",
+        "currentStatus": "PASSED",
+        "currentActualStatus": 200,
+        "currentLatencyMs": 3
+      }
+    ]
   }
 }
 ```
