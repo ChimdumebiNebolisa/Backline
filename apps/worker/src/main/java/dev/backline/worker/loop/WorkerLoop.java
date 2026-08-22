@@ -61,6 +61,10 @@ public class WorkerLoop {
     public void stop() {
         stopped = true;
         if (workerThread != null) {
+            // Interrupt so an in-flight HTTP call or poll sleep cannot hold the loop past
+            // join(); without this a slow target turns shutdown into a zombie poller that
+            // keeps claiming runs.
+            workerThread.interrupt();
             try {
                 workerThread.join(10_000);
             } catch (InterruptedException ex) {
