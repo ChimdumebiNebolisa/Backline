@@ -52,6 +52,7 @@ backline status <runId>
 backline history
 backline diff <runId>
 backline report <runId>
+backline cancel <runId>
 backline worker
 backline doctor
 ```
