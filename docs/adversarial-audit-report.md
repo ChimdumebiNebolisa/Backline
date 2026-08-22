@@ -218,6 +218,16 @@ Slug create-race (same fix class as F-002, lower likelihood — deferred), missi
 
 Deferred (recorded in §9, do not block the core promise): F-008 slug create-race, F-009 field length validation, F-010 cosmetic diff print.
 
+### Merge note
+
+While preparing the remediation commits, `origin/main` advanced (quality-roadmap work). After rebasing:
+upstream had independently fixed C-3 (baseline queries now require `queuedAt < current.queuedAt`) and
+implemented F-005's substance (STATUS_CODE_CHANGED for equal-status pairs) inside a broader
+response-contract diff feature; it also added `CANCELLED -> 3` to `status`. This remediation keeps those
+implementations and layers F-001 fencing, F-002 idempotent replay, F-004 body bound, F-007 skip
+diagnostics, and documentation truthfulness (F-003) on top. Post-merge full suite: BUILD SUCCESSFUL,
+0 failures (Docker-gated suites skip locally for the environment reason documented in §7.2).
+
 ### Post-fix verification
 
 - Full fresh run: `gradlew cleanTest test` → **BUILD SUCCESSFUL in 6m 49s**; 228 tests total, 59 skipped (all Testcontainers-gated, each skip now self-reporting its cause), 0 failures.

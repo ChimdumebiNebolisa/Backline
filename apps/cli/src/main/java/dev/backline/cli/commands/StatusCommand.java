@@ -66,6 +66,7 @@ public class StatusCommand implements Callable<Integer> {
                 case FAILED -> 1;
                 case ERROR -> 2;
                 case CANCELLED -> 3;
+                // Non-terminal statuses cannot reach this branch (guarded above).
                 default -> 0;
             };
         }

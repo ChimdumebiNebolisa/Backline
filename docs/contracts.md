@@ -17,6 +17,11 @@ QUEUED | RUNNING -> CANCELLED (explicit cancel)
 
 Terminal statuses: `PASSED`, `FAILED`, `ERROR`, `CANCELLED`.
 
+Note (audit finding F-003): `CANCELLED` exists in the schema, enums, and worker guards, but
+no CLI command or API endpoint currently transitions a run to it. It is reserved for a future
+cancel operation; workers already stop executing and skip finalization if they observe a
+cancelled claim mid-run.
+
 ## Run submission
 
 - `POST /api/runs` requires an existing project slug.
