@@ -29,13 +29,16 @@ class WorkerFencingTest extends PostgresWorkerTestBase {
 
     @Test
     void staleOwnerCannotFinalizeAfterAnotherWorkerReclaimed() {
+        deleteStrayNonTerminalRuns(jdbcTemplate);
         UUID projectId = insertProject();
         UUID runId = insertQueuedRun(projectId);
 
         var firstClaim = dao.claimNextRun("worker-a");
         assertThat(firstClaim).isPresent();
         makeStale(runId);
-        assertThat(dao.recoverStaleRuns(60_000, 3, 1_000)).isEqualTo(1);
+        // Zero backoff so the recovered run is immediately claimable; otherwise the
+        // re-claim below races the scheduled retry window nondeterministically.
+        assertThat(dao.recoverStaleRuns(60_000, 3, 0)).isEqualTo(1);
 
         var secondClaim = dao.claimNextRun("worker-b");
         assertThat(secondClaim).isPresent().get().satisfies(run -> {
@@ -49,12 +52,13 @@ class WorkerFencingTest extends PostgresWorkerTestBase {
 
     @Test
     void staleOwnerCannotPersistResultsOrRequeueAfterAnotherWorkerReclaimed() {
+        deleteStrayNonTerminalRuns(jdbcTemplate);
         UUID projectId = insertProject();
         UUID runId = insertQueuedRun(projectId);
 
         assertThat(dao.claimNextRun("worker-a")).isPresent();
         makeStale(runId);
-        assertThat(dao.recoverStaleRuns(60_000, 3, 1_000)).isEqualTo(1);
+        assertThat(dao.recoverStaleRuns(60_000, 3, 0)).isEqualTo(1);
         assertThat(dao.claimNextRun("worker-b")).isPresent();
 
         List<CheckResultRow> rows = List.of(new CheckResultRow(
@@ -73,6 +77,31 @@ class WorkerFencingTest extends PostgresWorkerTestBase {
         assertThat(jdbcTemplate.queryForObject("SELECT status FROM runs WHERE id = ?", String.class, runId))
                 .isEqualTo("PASSED");
         assertThat(resultCount(runId)).isEqualTo(1);
+    }
+
+    @Test
+    void cancelledRunningRunCannotBeFinalizedRequeuedOrPersistedByOwner() {
+        deleteStrayNonTerminalRuns(jdbcTemplate);
+        UUID projectId = insertProject();
+        UUID runId = insertQueuedRun(projectId);
+
+        assertThat(dao.claimNextRun("worker-a")).isPresent();
+        // Simulates the API's conditional cancel update winning over this worker.
+        jdbcTemplate.update(
+                "UPDATE runs SET status = 'CANCELLED', finished_at = now(), locked_by = NULL, "
+                        + "locked_at = NULL, timeout_at = NULL WHERE id = ? AND status = 'RUNNING'",
+                runId);
+
+        List<CheckResultRow> rows = List.of(new CheckResultRow(
+                null, "k", "K", CheckResultStatus.PASSED, 200, 10L, null, null, "{}", "[]"));
+
+        assertThat(dao.persistResultsAndFinalize(runId, rows, RunStatus.PASSED, "worker-a")).isFalse();
+        assertThat(dao.finalizeRun(runId, RunStatus.FAILED, "late finalize", "worker-a")).isFalse();
+        assertThat(dao.requeueForRetry(runId, 0, "worker-a")).isFalse();
+
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM runs WHERE id = ?", String.class, runId))
+                .isEqualTo("CANCELLED");
+        assertThat(resultCount(runId)).isZero();
     }
 
     private void makeStale(UUID runId) {

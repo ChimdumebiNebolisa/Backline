@@ -103,6 +103,7 @@ class WorkerRecoveryTest extends PostgresWorkerTestBase {
 
     @Test
     void cancelledRunIsNotClaimedByWorker() {
+        deleteStrayNonTerminalRuns(jdbcTemplate);
         UUID projectId = insertProject();
         UUID runId = insertRunInState(projectId, "CANCELLED", 0, null, null);
 
@@ -130,6 +131,7 @@ class WorkerRecoveryTest extends PostgresWorkerTestBase {
 
     @Test
     void retryCountIncrementsCorrectlyAcrossAttempts() {
+        deleteStrayNonTerminalRuns(jdbcTemplate);
         UUID projectId = insertProject();
         insertCheck(projectId, "test-check");
         UUID runId = insertQueuedRun(projectId);
@@ -150,6 +152,7 @@ class WorkerRecoveryTest extends PostgresWorkerTestBase {
 
     @Test
     void deterministicFailedRunIsNotRetried() {
+        deleteStrayNonTerminalRuns(jdbcTemplate);
         UUID projectId = insertProject();
         UUID runId = insertQueuedRun(projectId);
 
