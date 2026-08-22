@@ -17,16 +17,19 @@ public final class PostgresTestContainers {
     private static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(POSTGRES_IMAGE);
 
     private static final boolean DOCKER_AVAILABLE;
+    private static final String DOCKER_FAILURE;
 
     static {
-        boolean started = false;
+        String failure = null;
         try {
             POSTGRES.start();
-            started = true;
         } catch (Exception e) {
-            // Docker/Testcontainers not available in this environment
+            // Keep the root cause visible: a silent skip here looks identical to a green
+            // build and hides misconfigured Docker environments (audit finding F-007).
+            failure = e.getClass().getSimpleName() + ": " + e.getMessage();
         }
-        DOCKER_AVAILABLE = started;
+        DOCKER_AVAILABLE = failure == null;
+        DOCKER_FAILURE = failure;
     }
 
     private PostgresTestContainers() {}
@@ -37,15 +40,17 @@ public final class PostgresTestContainers {
 
     public static void requireDocker() {
         if (!DOCKER_AVAILABLE) {
+            String cause = DOCKER_FAILURE == null ? "unknown" : DOCKER_FAILURE;
             if ("true".equalsIgnoreCase(System.getenv("CI"))) {
                 throw new IllegalStateException(
                         "Docker is required for Testcontainers tests in CI. "
-                                + "Enable Docker on the CI runner and retry.");
+                                + "Enable Docker on the CI runner and retry. Cause: " + cause);
             }
-            Assumptions.assumeTrue(
-                    false,
-                    "Docker is not available — Testcontainers tests skipped. "
-                            + "Start Docker Desktop and retry. See README.md troubleshooting.");
+            String detail = "Docker/Testcontainers unavailable — PostgreSQL integration tests skipped. "
+                    + "Start Docker Desktop and retry. See README.md troubleshooting. Cause: " + cause;
+            // Gradle's XML/console does not surface assumption reasons, so print once per call.
+            System.err.println("[test-skip] " + detail);
+            Assumptions.assumeTrue(false, detail);
         }
     }
 }
