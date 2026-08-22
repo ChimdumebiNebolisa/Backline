@@ -31,4 +31,8 @@ backline run
 - **health** and **get-user** are expected to **pass** (the sample endpoints return `200` and match assertions).
 - **broken-endpoint** is expected to **fail**: the sample `/broken` route intentionally returns **500**, while the check requires **200**. This demonstrates a failing regression check without hiding errors.
 
+The sample API also exposes `GET /huge` (an 11 MB body, not part of the canonical config) so the
+worker's bounded-read behavior can be demonstrated: a check against it ends `ERROR` with
+`BODY_TOO_LARGE` instead of buffering the payload.
+
 For the full reviewer walkthrough, see [docs/demo-script.md](../../docs/demo-script.md).

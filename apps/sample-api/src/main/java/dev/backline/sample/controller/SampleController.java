@@ -54,6 +54,22 @@ public class SampleController {
     }
 
     /**
+     * Serves a response body larger than the worker's 10 MB read bound so demos can show the
+     * executor failing a check with {@code BODY_TOO_LARGE} instead of buffering the payload.
+     */
+    @GetMapping("/huge")
+    public ResponseEntity<byte[]> huge() {
+        byte[] chunk = "0123456789".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+        byte[] body = new byte[11 * 1024 * 1024];
+        for (int i = 0; i < body.length; i += chunk.length) {
+            System.arraycopy(chunk, 0, body, i, Math.min(chunk.length, body.length - i));
+        }
+        return ResponseEntity.ok()
+                .contentType(MediaType.TEXT_PLAIN)
+                .body(body);
+    }
+
+    /**
      * Deterministic schema playground for observed response-contract demos.
      *
      * <p>Modes ({@code ?mode=} or {@code POST /schema-change/mode}): {@code stable} (changing scalar values,
