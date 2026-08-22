@@ -46,6 +46,26 @@ class CheckSyncServiceTest {
     }
 
     @Test
+    void syncRejectsNameOverDatabaseLength() {
+        CheckSyncService service = serviceWithWritableRepository();
+        CheckSyncRequest request = new CheckSyncRequest(
+                "sample",
+                "Sample",
+                List.of(new CheckDefinitionDto(
+                        "health",
+                        "N".repeat(201),
+                        HttpMethod.GET,
+                        "http://localhost:8081/health",
+                        200,
+                        null,
+                        List.of())));
+
+        assertThatThrownBy(() -> service.sync(request))
+                .isInstanceOf(ValidationFailedException.class)
+                .hasMessageContaining("check name must be at most 200 characters");
+    }
+
+    @Test
     void syncAcceptsExtendedAssertionOperators() {
         CheckSyncService service = serviceWithWritableRepository();
         CheckSyncRequest request = new CheckSyncRequest(

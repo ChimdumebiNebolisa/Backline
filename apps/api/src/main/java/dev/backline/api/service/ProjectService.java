@@ -10,6 +10,7 @@ import dev.backline.core.api.dto.ProjectDto;
 import dev.backline.core.error.ErrorCode;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Sort;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,7 +40,15 @@ public class ProjectService {
         ProjectEntity e = new ProjectEntity();
         e.setSlug(slug);
         e.setName(name);
-        return ProjectMapper.toDto(projectRepository.save(e));
+        try {
+            // Flush now so a lost create race surfaces here (constraint violation) instead of
+            // at commit time, where it would escape as an unstructured 500.
+            return ProjectMapper.toDto(projectRepository.saveAndFlush(e));
+        } catch (DataIntegrityViolationException ex) {
+            // Lost a create race against a concurrent request for the same slug; the unique
+            // index is the arbiter, and the documented contract is 409 rather than a 500.
+            throw new ConflictException(ErrorCode.CONFLICT, "project slug already exists", "slug");
+        }
     }
 
     @Transactional(readOnly = true)

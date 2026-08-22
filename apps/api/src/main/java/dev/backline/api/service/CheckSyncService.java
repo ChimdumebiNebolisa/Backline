@@ -112,6 +112,9 @@ public class CheckSyncService {
             if (c.name() == null || c.name().isBlank()) {
                 throw new ValidationFailedException("check name is required", "checks");
             }
+            if (c.name().length() > 200) {
+                throw new ValidationFailedException("check name must be at most 200 characters", "checks");
+            }
             if (c.method() == null) {
                 throw new ValidationFailedException("method is required", "checks");
             }
