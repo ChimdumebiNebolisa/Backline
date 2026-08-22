@@ -144,6 +144,24 @@ public final class BacklineApiClient {
         return mapper.readValue(response.body(), new TypeReference<DataResponse<RunDto>>() {}).data();
     }
 
+    /**
+     * Cancels a queued or running run. The API answers 409 for runs that already reached a
+     * terminal state; callers surface that through {@link ApiClientException}.
+     */
+    public RunDto cancelRun(UUID id) throws IOException, InterruptedException {
+        HttpRequest httpRequest = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl + "/api/runs/" + id + "/cancel"))
+                .timeout(REQUEST_TIMEOUT)
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.noBody())
+                .build();
+        HttpResponse<String> response = http.send(httpRequest, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            throw clientException(response);
+        }
+        return mapper.readValue(response.body(), new TypeReference<DataResponse<RunDto>>() {}).data();
+    }
+
     public List<CheckResultDto> getRunResults(UUID id) throws IOException, InterruptedException {
         HttpRequest httpRequest = HttpRequest.newBuilder()
                 .uri(URI.create(baseUrl + "/api/runs/" + id + "/results"))
