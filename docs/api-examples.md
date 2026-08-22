@@ -222,6 +222,16 @@ Example:
 curl -sS http://localhost:8080/api/runs/a1b2c3d4-e5f6-7890-abcd-ef1234567890
 ```
 
+### Cancel a queued or running run
+
+```bash
+curl -sS -X POST http://localhost:8080/api/runs/a1b2c3d4-e5f6-7890-abcd-ef1234567890/cancel
+```
+
+Response: `200` with the run in terminal `CANCELLED` state, or `409` with a structured
+`CONFLICT` error when the run already reached a terminal status. CLI equivalent:
+`backline cancel <runId>`.
+
 ### Get check results for a run
 
 ```bash

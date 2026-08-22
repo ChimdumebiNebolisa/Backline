@@ -145,13 +145,13 @@ public class RunCommand implements Callable<Integer> {
                     return 0;
                 }
                 if (enforcePolicy && st.isTerminal()) {
-                    PolicyEvaluation evaluation = evaluatePolicy(client, runId, effectivePolicy);
+                    PolicyEvaluation evaluation = evaluatePolicy(client, runId, effectiveEnforcedPolicy(effectivePolicy));
                     return policyAwareExit(runId, st, evaluation);
                 }
                 return exitForTerminal(st);
             }
             System.out.println("Waiting up to " + timeoutSeconds + "s for a terminal run status...");
-            return waitForTerminal(client, runId, run.status(), enforcePolicy ? effectivePolicy : null);
+            return waitForTerminal(client, runId, run.status(), enforcePolicy ? effectiveEnforcedPolicy(effectivePolicy) : null);
         } catch (ApiClientException e) {
             return CliApiErrors.print(parent.apiUrl(), e);
         } catch (InterruptedException e) {
@@ -223,6 +223,15 @@ public class RunCommand implements Callable<Integer> {
             return RunPolicyProfile.fromCliValue(policyPreset).toPolicy();
         }
         return configPolicy;
+    }
+
+    /**
+     * {@code --enforce-policy} must always enforce something: with no config policy and no
+     * preset it falls back to the strict default instead of silently degrading to an
+     * unenforced run.
+     */
+    private static RunPolicy effectiveEnforcedPolicy(RunPolicy resolved) {
+        return resolved != null ? resolved : RunPolicyEvaluator.DEFAULT_POLICY;
     }
 
     private static int exitForTerminal(RunStatus status) {

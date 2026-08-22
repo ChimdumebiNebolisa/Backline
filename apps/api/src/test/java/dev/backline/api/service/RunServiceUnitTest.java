@@ -71,6 +71,38 @@ class RunServiceUnitTest {
     }
 
     @Test
+    void submit_rejectsEnvironmentOverDatabaseLength() {
+        assertThatThrownBy(() -> runService.submit(
+                new CreateRunRequest("proj", "e".repeat(61), "hash", null, "cli")))
+                .isInstanceOf(ValidationFailedException.class)
+                .hasMessageContaining("environment");
+    }
+
+    @Test
+    void submit_rejectsConfigHashOverDatabaseLength() {
+        assertThatThrownBy(() -> runService.submit(
+                new CreateRunRequest("proj", "local", "h".repeat(129), null, "cli")))
+                .isInstanceOf(ValidationFailedException.class)
+                .hasMessageContaining("configHash");
+    }
+
+    @Test
+    void submit_rejectsSourceOverDatabaseLength() {
+        assertThatThrownBy(() -> runService.submit(
+                new CreateRunRequest("proj", "local", "hash", null, "s".repeat(61))))
+                .isInstanceOf(ValidationFailedException.class)
+                .hasMessageContaining("source");
+    }
+
+    @Test
+    void submit_rejectsIdempotencyKeyOverDatabaseLength() {
+        assertThatThrownBy(() -> runService.submit(
+                new CreateRunRequest("proj", "local", "hash", "k".repeat(181), "cli")))
+                .isInstanceOf(ValidationFailedException.class)
+                .hasMessageContaining("idempotencyKey");
+    }
+
+    @Test
     void findById_throwsNotFoundForMissingRun() {
         UUID id = UUID.randomUUID();
         when(runRepository.findById(id)).thenReturn(Optional.empty());

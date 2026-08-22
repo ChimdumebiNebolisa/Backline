@@ -1,5 +1,6 @@
 package dev.backline.cli;
 
+import dev.backline.cli.commands.CancelCommand;
 import dev.backline.cli.commands.DiffCommand;
 import dev.backline.cli.commands.DoctorCommand;
 import dev.backline.cli.commands.HistoryCommand;
@@ -30,6 +31,7 @@ import picocli.CommandLine.ScopeType;
             HistoryCommand.class,
             DiffCommand.class,
             ReportCommand.class,
+            CancelCommand.class,
             WorkerCommand.class,
             DoctorCommand.class
         })

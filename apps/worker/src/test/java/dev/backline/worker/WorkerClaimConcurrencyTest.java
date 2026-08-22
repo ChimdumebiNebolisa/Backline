@@ -28,6 +28,7 @@ class WorkerClaimConcurrencyTest extends PostgresWorkerTestBase {
 
     @Test
     void onlyOneWorkerClaimsEachQueuedRun() throws Exception {
+        deleteStrayNonTerminalRuns(jdbcTemplate);
         UUID projectId = insertProject();
         List<UUID> runIds = new ArrayList<>();
         for (int i = 0; i < 50; i++) {
@@ -66,11 +67,13 @@ class WorkerClaimConcurrencyTest extends PostgresWorkerTestBase {
         pool.shutdownNow();
 
         assertThat(processed.get()).isEqualTo(50);
-        Long errorRuns =
-                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM runs WHERE status = 'ERROR'", Long.class);
+        // Scoped to this test's project so terminal rows left by other classes cannot
+        // inflate the count.
+        Long errorRuns = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM runs WHERE status = 'ERROR' AND project_id = ?", Long.class, projectId);
         assertThat(errorRuns).isEqualTo(50L);
-        Long running =
-                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM runs WHERE status = 'RUNNING'", Long.class);
+        Long running = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM runs WHERE status = 'RUNNING' AND project_id = ?", Long.class, projectId);
         assertThat(running).isZero();
     }
 

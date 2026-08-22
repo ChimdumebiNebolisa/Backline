@@ -89,7 +89,7 @@ class RunControllerTest extends PostgresTestBase {
                 "configHash",
                 "abc",
                 "idempotencyKey",
-                "idem-1",
+                "idem-" + UUID.randomUUID(),
                 "source",
                 "test"));
         ResponseEntity<String> run1 =
@@ -110,7 +110,7 @@ class RunControllerTest extends PostgresTestBase {
                 "configHash",
                 "abc",
                 "idempotencyKey",
-                "idem-2",
+                "idem-2-" + UUID.randomUUID(),
                 "source",
                 "test"));
         restTemplate.postForEntity("/api/runs", new HttpEntity<>(runBody2, headers), String.class);

@@ -58,6 +58,39 @@ class RunCommandTest {
     }
 
     @Test
+    void runEnforcePolicyWithoutConfigPolicyAppliesStrictDefault() throws Exception {
+        HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
+        server.createContext("/", RunCommandTest::handleWithPolicyFailure);
+        server.setExecutor(null);
+        server.start();
+        try {
+            String base = "http://127.0.0.1:" + server.getAddress().getPort();
+            // No policy block and no --policy preset: --enforce-policy must still apply the
+            // strict default instead of silently running unenforced.
+            String yaml =
+                    """
+                    project: demo
+                    environment: local
+                    checks:
+                      - key: k
+                        name: n
+                        method: GET
+                        url: http://localhost:8081/health
+                        expected_status: 200
+                    """;
+            Path yml = Path.of("backline.yml");
+            Files.writeString(yml, yaml);
+            Path junit = Path.of("policy.xml");
+            int code = new CommandLine(new Backline())
+                    .execute("--api-url", base, "run", "-f", yml.toString(), "--no-wait", "--enforce-policy", "--junit-output", junit.toString());
+            assertThat(code).isEqualTo(5);
+            assertThat(junit).exists();
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
     void runRejectsUnknownPolicyPreset() {
         ByteArrayOutputStream err = new ByteArrayOutputStream();
         PrintStream oldErr = System.err;

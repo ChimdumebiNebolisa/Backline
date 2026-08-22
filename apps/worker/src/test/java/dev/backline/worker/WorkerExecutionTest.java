@@ -61,6 +61,9 @@ class WorkerExecutionTest extends PostgresWorkerTestBase {
         if (loop != null) {
             loop.stop();
         }
+        // The live loop processes real rows; clear anything it left half-done so later
+        // classes start from a clean queue.
+        deleteStrayNonTerminalRuns(jdbcTemplate);
         if (server != null) {
             server.shutdown();
         }
@@ -68,6 +71,7 @@ class WorkerExecutionTest extends PostgresWorkerTestBase {
 
     @Test
     void processesQueuedRunEndToEnd() throws Exception {
+        deleteStrayNonTerminalRuns(jdbcTemplate);
         server.setDispatcher(new Dispatcher() {
             @Override
             public MockResponse dispatch(RecordedRequest request) {

@@ -22,6 +22,7 @@ class WorkerRunDaoTest extends PostgresWorkerTestBase {
 
     @Test
     void claimReturnsRowThenEmptyWhenNoQueuedRuns() {
+        deleteStrayNonTerminalRuns(jdbcTemplate);
         UUID projectId = insertProject();
         UUID runId = insertQueuedRun(projectId);
 
@@ -34,6 +35,7 @@ class WorkerRunDaoTest extends PostgresWorkerTestBase {
 
     @Test
     void requeueReturnsRunToQueuedWithFutureNextAttempt() throws InterruptedException {
+        deleteStrayNonTerminalRuns(jdbcTemplate);
         UUID projectId = insertProject();
         UUID runId = insertQueuedRun(projectId);
         UUID checkId = insertCheck(projectId, "requeue-check");
@@ -79,6 +81,7 @@ class WorkerRunDaoTest extends PostgresWorkerTestBase {
 
     @Test
     void persistResultsAndFinalizeIsAtomicForTerminalUpdate() {
+        deleteStrayNonTerminalRuns(jdbcTemplate);
         UUID projectId = insertProject();
         UUID runId = insertQueuedRun(projectId);
         UUID checkId = insertCheck(projectId, "k");

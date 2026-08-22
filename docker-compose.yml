@@ -51,7 +51,8 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-backline}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-backline}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-backline}
-      BACKLINE_WORKER_ID: ${BACKLINE_WORKER_ID:-worker-1}
+      # No BACKLINE_WORKER_ID here on purpose: scaled replicas must not share an id.
+      # The worker falls back to its container HOSTNAME, which is unique per replica.
 
   sample-api:
     profiles:

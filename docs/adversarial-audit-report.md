@@ -214,9 +214,19 @@ Slug create-race (same fix class as F-002, lower likelihood — deferred), missi
 | F-005 | `DiffService.buildEntry` surfaces `STATUS_CODE_CHANGED` whenever equal-status pairs have different `actual_status` (e.g., FAILED 500 → FAILED 503); class javadoc corrected (finished_at ordering, not queued-before) | `DiffServiceUnitTest.failedToFailedWithDifferentHttpStatusCode_surfacesStatusCodeChanged`, `.failedToFailedWithSameHttpStatusCode_staysStillFailing` | Local run passed |
 | F-006 | `StatusCommand` returns exit 3 for CANCELLED, matching `run` | CLI smoke suite still passes | Local run passed |
 | F-007 | Container-start failures captured with cause; skip reason printed to test stderr (`[test-skip] …`) and carried in the JUnit XML system-err + IDE assumption message; CI still hard-fails | existing suites | Skip XML on this machine now contains the real docker-java failure cause |
-| F-003 | Docs made truthful: contracts.md notes CANCELLED is schema-reserved with no runtime path yet; known-limitations.md documents baseline ordering tie caveat and the 10 MB body bound | n/a (docs) | n/a |
+| F-003 | Real cancellation shipped: `POST /api/runs/{id}/cancel` + `backline cancel`; conditional non-terminal update is linearizable against claim/finalize; CANCELLED event written; worker observes mid-run and discards partials | `RunCancellationTest` (queued cancel + event, running-cancel releases ownership, terminal 409); `WorkerFencingTest.cancelledRunningRunCannotBeFinalizedRequeuedOrPersistedByOwner`; live Compose demo (queued cancel survives worker restart; terminal cancel conflicts) | Full suite green; E2E verified |
 
-Deferred (recorded in §9, do not block the core promise): F-008 slug create-race, F-009 field length validation, F-010 cosmetic diff print.
+### Findings proven during the no-skip verification pass
+
+- **F-011 (High→fixed)**: `--enforce-policy` with no `policy:` block and no preset silently ran unenforced instead of applying the strict default. Fixed in `RunCommand.effectiveEnforcedPolicy`; regression test `runEnforcePolicyWithoutConfigPolicyAppliesStrictDefault`.
+- **F-012 (Medium→fixed)**: `docker-compose.yml` gave every worker replica the same `BACKLINE_WORKER_ID`, colliding claim identities in the audit trail under `--scale worker=N`. Fixed by removing the override so containers fall back to unique hostnames; verified live (two replicas, 2+2 claim split).
+- **F-013 (Medium→fixed)**: `WorkerLoop.stop()` could time out its join while a check was mid-flight, leaving a zombie poller that claimed later fixtures' runs (proven by intermittent cross-test failures). Fixed with interrupt-on-stop plus test-scoped queue hygiene (`deleteStrayNonTerminalRuns`) making worker suites execution-order independent.
+
+Deferred at audit time and since remediated: F-003 (real `POST /api/runs/{id}/cancel` +
+`backline cancel` with linearizable terminal semantics), F-008 (project-slug create race now
+returns structured 409 via flush-time constraint mapping), F-009 (environment/configHash/
+source/idempotencyKey/check-name lengths validated before the database). Still open: F-010
+cosmetic diff print.
 
 ### Merge note
 

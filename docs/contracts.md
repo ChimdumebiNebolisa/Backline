@@ -12,15 +12,23 @@ Typical transitions:
 QUEUED -> RUNNING -> PASSED | FAILED | ERROR
 QUEUED -> RUNNING -> QUEUED   (worker retry)
 RUNNING -> QUEUED | ERROR     (stale recovery)
-QUEUED | RUNNING -> CANCELLED (explicit cancel)
+QUEUED -> CANCELLED           (POST /api/runs/{id}/cancel)
+RUNNING -> CANCELLED          (POST /api/runs/{id}/cancel; worker observes and stops without finalizing)
 ```
 
 Terminal statuses: `PASSED`, `FAILED`, `ERROR`, `CANCELLED`.
 
-Note (audit finding F-003): `CANCELLED` exists in the schema, enums, and worker guards, but
-no CLI command or API endpoint currently transitions a run to it. It is reserved for a future
-cancel operation; workers already stop executing and skip finalization if they observe a
-cancelled claim mid-run.
+Cancellation contract:
+
+- `POST /api/runs/{runId}/cancel` cancels runs in `QUEUED` or `RUNNING`; cancelling a
+  terminal run returns `409 CONFLICT`.
+- The conditional update makes cancellation linearizable against worker claim/finalize:
+  whichever transaction touches the run row first wins. A cancelled run can never be
+  finalized, requeued, or given results by a worker (claim-ownership fence plus the
+  non-terminal predicate).
+- A worker executing an in-flight run observes the cancellation between checks, discards
+  partial results, and writes no terminal update of its own.
+- CLI: `backline cancel <runId>` (exit 0 on success, 1 with an actionable message on 409).
 
 ## Run submission
 
