@@ -18,7 +18,17 @@ import org.springframework.data.repository.query.Param;
  */
 public interface RunRepository extends JpaRepository<RunEntity, UUID>, JpaSpecificationExecutor<RunEntity> {
 
-    Optional<RunEntity> findByIdempotencyKey(String idempotencyKey);
+    Optional<RunEntity> findByIdempotencyKey(String key);
+
+    /**
+     * Transaction-scoped PostgreSQL advisory lock used to serialize concurrent submissions that
+     * carry the same idempotency key. Without it, two simultaneous requests can both observe
+     * "no existing run" and race past the check-then-insert path; the unique index would reject
+     * one of them as a 500 instead of replaying the winner's row.
+     */
+    @Query(value = "select pg_advisory_xact_lock(hashtext(:key))", nativeQuery = true)
+    void lockIdempotencyKey(@Param("key") String key);
+
 
     Page<RunEntity> findByProjectId(UUID projectId, Pageable pageable);
 

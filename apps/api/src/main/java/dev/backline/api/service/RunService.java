@@ -57,14 +57,20 @@ public class RunService {
      * Creates a queued run. Requires the project to exist (via {@code POST /api/projects} or prior sync that
      * created it) so clients follow an explicit project lifecycle instead of implicitly creating projects on run
      * submission.
+     *
+     * <p>When an idempotency key is present, a transaction-scoped advisory lock serializes concurrent
+     * duplicates so the loser observes and replays the winner's run instead of failing on the unique
+     * index (docs/contracts.md: duplicate key returns the same run row).
      */
     @Transactional
     public RunDto submit(CreateRunRequest req) {
         validateSubmit(req);
         ProjectEntity project = projectService.requireBySlug(req.projectSlug().trim());
         if (req.idempotencyKey() != null && !req.idempotencyKey().isBlank()) {
+            String key = req.idempotencyKey().trim();
+            runRepository.lockIdempotencyKey(key);
             return runRepository
-                    .findByIdempotencyKey(req.idempotencyKey().trim())
+                    .findByIdempotencyKey(key)
                     .map(RunMapper::toDto)
                     .orElseGet(() -> createQueuedRun(project, req));
         }
