@@ -2,6 +2,7 @@ package dev.backline.api.persistence.repository;
 
 import dev.backline.api.persistence.entity.RunEntity;
 import dev.backline.core.run.RunStatus;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -9,6 +10,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -17,6 +19,29 @@ import org.springframework.data.repository.query.Param;
  * specification-based filtering for list endpoints.
  */
 public interface RunRepository extends JpaRepository<RunEntity, UUID>, JpaSpecificationExecutor<RunEntity> {
+
+    /**
+     * Cancels a run only while it is still cancellable ({@code QUEUED} or {@code RUNNING}).
+     * The conditional update makes cancellation linearizable against worker claim and
+     * finalize: whichever transaction touches the row first wins, and a late finalize or
+     * late cancel observes zero affected rows instead of overwriting terminal state.
+     *
+     * @return number of rows cancelled (0 when the run already reached a terminal status)
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            update RunEntity r
+            set r.status = dev.backline.core.run.RunStatus.CANCELLED,
+                r.finishedAt = :now,
+                r.updatedAt = :now,
+                r.lockedBy = null,
+                r.lockedAt = null,
+                r.timeoutAt = null
+            where r.id = :runId
+              and (r.status = dev.backline.core.run.RunStatus.QUEUED
+                   or r.status = dev.backline.core.run.RunStatus.RUNNING)
+            """)
+    int cancelIfCancellable(@Param("runId") UUID runId, @Param("now") Instant now);
 
     Optional<RunEntity> findByIdempotencyKey(String key);
 

@@ -87,6 +87,16 @@ public class RunController {
         return DataResponse.of(diffService.computeDiff(runId, baseline, fixedRunId));
     }
 
+    /**
+     * Cancels a queued or running run. Terminal runs return 409 CONFLICT; the response carries
+     * the run in its new terminal {@code CANCELLED} state.
+     */
+    @PostMapping("/{runId}/cancel")
+    @Operation(operationId = "cancelRunById", description = "Cancel a queued or running run. Cancelling an already terminal run conflicts.")
+    public DataResponse<RunDto> cancel(@PathVariable UUID runId) {
+        return DataResponse.of(runService.cancel(runId));
+    }
+
     private static CreateRunRequest toCore(CreateRunBody body) {
         return new CreateRunRequest(
                 body.projectSlug(),

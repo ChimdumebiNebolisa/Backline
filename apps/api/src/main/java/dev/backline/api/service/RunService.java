@@ -1,6 +1,7 @@
 package dev.backline.api.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.backline.api.exception.ConflictException;
 import dev.backline.api.exception.NotFoundException;
 import dev.backline.api.mapper.CheckResultMapper;
 import dev.backline.api.mapper.RunEventMapper;
@@ -16,6 +17,7 @@ import dev.backline.core.api.dto.CheckResultDto;
 import dev.backline.core.api.dto.CreateRunRequest;
 import dev.backline.core.api.dto.RunDto;
 import dev.backline.core.api.dto.RunEventDto;
+import dev.backline.core.error.ErrorCode;
 import dev.backline.core.run.RunEventType;
 import dev.backline.core.run.RunStatus;
 import org.slf4j.Logger;
@@ -25,9 +27,11 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
+
 
 @Service
 public class RunService {
@@ -108,9 +112,60 @@ public class RunService {
         if (req.environment() == null || req.environment().isBlank()) {
             throw new dev.backline.api.exception.ValidationFailedException("environment is required", "environment");
         }
+        if (req.environment().length() > 60) {
+            throw new dev.backline.api.exception.ValidationFailedException(
+                    "environment must be at most 60 characters", "environment");
+        }
         if (req.configHash() == null || req.configHash().isBlank()) {
             throw new dev.backline.api.exception.ValidationFailedException("configHash is required", "configHash");
         }
+        if (req.configHash().length() > 128) {
+            throw new dev.backline.api.exception.ValidationFailedException(
+                    "configHash must be at most 128 characters", "configHash");
+        }
+        if (req.source() != null && req.source().length() > 60) {
+            throw new dev.backline.api.exception.ValidationFailedException(
+                    "source must be at most 60 characters", "source");
+        }
+        if (req.idempotencyKey() != null && req.idempotencyKey().length() > 180) {
+            throw new dev.backline.api.exception.ValidationFailedException(
+                    "idempotencyKey must be at most 180 characters", "idempotencyKey");
+        }
+    }
+
+    /**
+     * Cancels a queued or running run. Cancellation is linearizable against worker claim and
+     * finalize: the conditional update only succeeds while the row is non-terminal, so a cancel
+     * racing a completing worker either wins (worker observes {@code CANCELLED} through
+     * {@code isRunCancelled} and skips finalization) or loses cleanly (409). Terminal runs are
+     * immutable and can never be moved back.
+     */
+    @Transactional
+    public RunDto cancel(UUID runId) {
+        RunEntity run = runRepository
+                .findById(runId)
+                .orElseThrow(() -> new NotFoundException("run not found", "runId"));
+        if (run.getStatus().isTerminal()) {
+            throw new ConflictException(ErrorCode.CONFLICT, "run already finished with status " + run.getStatus(), "runId");
+        }
+        Instant now = Instant.now();
+        int cancelled = runRepository.cancelIfCancellable(runId, now);
+        if (cancelled != 1) {
+            // Reached a terminal state between the read above and this update.
+            throw new ConflictException(ErrorCode.CONFLICT, "run already reached a terminal state", "runId");
+        }
+
+        RunEventEntity event = new RunEventEntity();
+        event.setRunId(runId);
+        event.setEventType(RunEventType.CANCELLED.name());
+        event.setMessage("Run cancelled by client while " + run.getStatus());
+        runEventRepository.save(event);
+
+        log.info("cancelled run id={} previousStatus={}", runId, run.getStatus());
+
+        RunEntity reloaded = runRepository.findById(runId)
+                .orElseThrow(() -> new NotFoundException("run not found", "runId"));
+        return RunMapper.toDto(reloaded);
     }
 
     @Transactional(readOnly = true)
