@@ -29,7 +29,7 @@ class WorkerRunDaoTest extends PostgresWorkerTestBase {
 
         assertThat(dao.claimNextRun("worker-a")).isEmpty();
 
-        dao.finalizeRun(runId, RunStatus.PASSED);
+        dao.finalizeRun(runId, RunStatus.PASSED, "worker-a");
     }
 
     @Test
@@ -50,7 +50,7 @@ class WorkerRunDaoTest extends PostgresWorkerTestBase {
                 "boom",
                 "{}",
                 "[]"));
-        dao.requeueForRetry(runId, 50);
+        dao.requeueForRetry(runId, 50, "worker-a");
 
         assertThat(jdbcTemplate.queryForObject("SELECT status FROM runs WHERE id = ?", String.class, runId))
                 .isEqualTo("QUEUED");
@@ -64,17 +64,17 @@ class WorkerRunDaoTest extends PostgresWorkerTestBase {
         assertThat(reclaimed).isPresent();
         assertThat(reclaimed.orElseThrow().runId()).isEqualTo(runId);
 
-        dao.finalizeRun(runId, RunStatus.ERROR, "cleanup");
+        dao.finalizeRun(runId, RunStatus.ERROR, "cleanup", "worker-b");
     }
 
     @Test
-    void finalizeRunRejectsWhenRunNotRunning() {
+    void finalizeRunReturnsFalseWhenRunNotOwned() {
         UUID projectId = insertProject();
         UUID runId = insertQueuedRun(projectId);
 
-        assertThatThrownBy(() -> dao.finalizeRun(runId, RunStatus.PASSED))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("RUNNING");
+        assertThat(dao.finalizeRun(runId, RunStatus.PASSED, "worker-a")).isFalse();
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM runs WHERE id = ?", String.class, runId))
+                .isEqualTo("QUEUED");
     }
 
     @Test
@@ -95,7 +95,7 @@ class WorkerRunDaoTest extends PostgresWorkerTestBase {
                 null,
                 "{}",
                 "[]");
-        dao.persistResultsAndFinalize(runId, List.of(row), RunStatus.PASSED);
+        dao.persistResultsAndFinalize(runId, List.of(row), RunStatus.PASSED, "worker-a");
 
         assertThat(jdbcTemplate.queryForObject("SELECT status FROM runs WHERE id = ?", String.class, runId))
                 .isEqualTo("PASSED");

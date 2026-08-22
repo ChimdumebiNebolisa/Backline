@@ -120,18 +120,29 @@ public class WorkerLoop {
         if (run.attemptCount() >= props.getMaxAttempts()) {
             log.warn("run.maxAttemptsExhausted runId={} workerId={} attempts={}",
                     run.runId(), props.getId(), run.attemptCount());
-            dao.finalizeRun(run.runId(), RunStatus.ERROR, "Worker error after max attempts: " + ex.getMessage());
+            boolean finalized = dao.finalizeRun(run.runId(), RunStatus.ERROR,
+                    "Worker error after max attempts: " + ex.getMessage(), run.lockedBy());
+            if (!finalized) {
+                log.warn("run.claimLost runId={} workerId={} phase=finalizeError", run.runId(), props.getId());
+            }
         } else {
             log.info("run.retryScheduled runId={} workerId={} attempt={} backoffMs={}",
                     run.runId(), props.getId(), run.attemptCount(), props.getRetryBackoffMs());
-            dao.requeueForRetry(run.runId(), props.getRetryBackoffMs());
+            boolean requeued = dao.requeueForRetry(run.runId(), props.getRetryBackoffMs(), run.lockedBy());
+            if (!requeued) {
+                log.warn("run.claimLost runId={} workerId={} phase=requeue", run.runId(), props.getId());
+            }
         }
     }
 
     private void processRun(ClaimedRun run) throws JsonProcessingException {
         List<CheckRow> checks = dao.loadChecksForProject(run.projectId());
         if (checks.isEmpty()) {
-            dao.finalizeRun(run.runId(), RunStatus.ERROR, "NO_CHECKS: no active checks for project");
+            boolean finalized = dao.finalizeRun(run.runId(), RunStatus.ERROR,
+                    "NO_CHECKS: no active checks for project", run.lockedBy());
+            if (!finalized) {
+                log.warn("run.claimLost runId={} workerId={} phase=noChecks", run.runId(), props.getId());
+            }
             return;
         }
 
@@ -192,9 +203,16 @@ public class WorkerLoop {
         }
 
         RunStatus terminal = resolveTerminalStatus(anyError, anyFailed);
-        dao.persistResultsAndFinalize(run.runId(), rows, terminal);
-        log.info("run.completed runId={} status={} workerId={} attempt={}",
-                run.runId(), terminal, props.getId(), run.attemptCount());
+        boolean finalized = dao.persistResultsAndFinalize(run.runId(), rows, terminal, run.lockedBy());
+        if (finalized) {
+            log.info("run.completed runId={} status={} workerId={} attempt={}",
+                    run.runId(), terminal, props.getId(), run.attemptCount());
+        } else {
+            // Ownership was lost mid-execution (stale recovery re-claimed this run);
+            // results were not written so they cannot conflict with the new owner.
+            log.warn("run.claimLost runId={} workerId={} attempt={} discardedResults={}",
+                    run.runId(), props.getId(), run.attemptCount(), rows.size());
+        }
     }
 
     /**

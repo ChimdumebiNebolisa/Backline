@@ -138,14 +138,14 @@ class WorkerRecoveryTest extends PostgresWorkerTestBase {
         assertThat(first).isPresent();
         assertThat(first.get().attemptCount()).isEqualTo(1);
 
-        dao.requeueForRetry(runId, 0);
+        dao.requeueForRetry(runId, 0, "worker-a");
 
         var second = dao.claimNextRun("worker-a");
         assertThat(second).isPresent();
         assertThat(second.get().attemptCount()).isEqualTo(2);
         assertThat(second.get().runId()).isEqualTo(runId);
 
-        dao.finalizeRun(runId, RunStatus.ERROR, "test cleanup");
+        dao.finalizeRun(runId, RunStatus.ERROR, "test cleanup", "worker-a");
     }
 
     @Test
@@ -154,7 +154,7 @@ class WorkerRecoveryTest extends PostgresWorkerTestBase {
         UUID runId = insertQueuedRun(projectId);
 
         dao.claimNextRun("worker-a");
-        dao.finalizeRun(runId, RunStatus.FAILED, "Check assertions failed normally");
+        dao.finalizeRun(runId, RunStatus.FAILED, "Check assertions failed normally", "worker-a");
 
         assertThat(getRunStatus(runId)).isEqualTo("FAILED");
 

@@ -27,32 +27,38 @@ public abstract class PostgresWorkerTestBase {
 
     protected static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
     private static final boolean DOCKER_AVAILABLE;
+    private static final String DOCKER_FAILURE;
 
     static {
-        boolean started = false;
+        String failure = null;
         try {
             POSTGRES.start();
-            started = true;
         } catch (Exception e) {
-            // Docker/Testcontainers not available in this environment
+            // Keep the root cause visible: a silent skip here looks identical to a green
+            // build and hides misconfigured Docker environments (audit finding F-007).
+            failure = e.getClass().getSimpleName() + ": " + e.getMessage();
         }
-        DOCKER_AVAILABLE = started;
+        DOCKER_AVAILABLE = failure == null;
+        DOCKER_FAILURE = failure;
     }
 
     @BeforeAll
     static void requireDockerForTests() {
         if (!DOCKER_AVAILABLE) {
+            String detail = "Docker/Testcontainers unavailable — PostgreSQL integration tests skipped. "
+                    + "Start Docker Desktop and retry. See README.md troubleshooting. Cause: "
+                    + (DOCKER_FAILURE == null ? "unknown" : DOCKER_FAILURE);
             if ("true".equalsIgnoreCase(System.getenv("CI"))) {
                 throw new IllegalStateException(
                         "Docker is required for Testcontainers tests in CI. "
-                                + "Enable Docker on the CI runner and retry.");
+                                + "Enable Docker on the CI runner and retry. Cause: "
+                                + (DOCKER_FAILURE == null ? "unknown" : DOCKER_FAILURE));
             }
-            Assumptions.assumeTrue(false,
-                    "Docker is not available — Testcontainers tests skipped. "
-                            + "Start Docker Desktop and retry. See README.md troubleshooting.");
+            // Gradle's XML/console does not surface assumption reasons, so print once per JVM.
+            System.err.println("[test-skip] " + detail);
+            Assumptions.assumeTrue(false, detail);
         }
     }
-
     @DynamicPropertySource
     static void registerDataSource(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);

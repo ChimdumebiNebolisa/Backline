@@ -46,7 +46,7 @@ class WorkerClaimConcurrencyTest extends PostgresWorkerTestBase {
                                 while (processed.get() < 50 && System.currentTimeMillis() < deadline) {
                                     var claimed = dao.claimNextRun("worker-" + workerIdx);
                                     if (claimed.isPresent()) {
-                                        dao.finalizeRun(claimed.orElseThrow().runId(), RunStatus.ERROR, "concurrency test");
+                                        dao.finalizeRun(claimed.orElseThrow().runId(), RunStatus.ERROR, "concurrency test", claimed.orElseThrow().lockedBy());
                                         processed.incrementAndGet();
                                     } else {
                                         try {

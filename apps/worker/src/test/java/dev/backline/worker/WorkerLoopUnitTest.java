@@ -43,7 +43,7 @@ class WorkerLoopUnitTest {
         UUID runId = UUID.randomUUID();
         UUID projectId = UUID.randomUUID();
         UUID checkId = UUID.randomUUID();
-        ClaimedRun claimedRun = new ClaimedRun(runId, projectId, "local", "cfg", 1);
+        ClaimedRun claimedRun = new ClaimedRun(runId, projectId, "local", "cfg", 1, "worker-test");
         CheckRow check = new CheckRow(
                 checkId,
                 "health",
@@ -72,7 +72,7 @@ class WorkerLoopUnitTest {
         WorkerLoop loop = new WorkerLoop(properties, dao, executor, objectMapper);
         loop.start();
 
-        verify(dao, timeout(3_000)).persistResultsAndFinalize(eq(runId), any(), eq(RunStatus.PASSED));
+        verify(dao, timeout(3_000)).persistResultsAndFinalize(eq(runId), any(), eq(RunStatus.PASSED), eq("worker-test"));
         loop.stop();
     }
 
@@ -87,7 +87,7 @@ class WorkerLoopUnitTest {
 
         UUID runId = UUID.randomUUID();
         UUID projectId = UUID.randomUUID();
-        ClaimedRun claimedRun = new ClaimedRun(runId, projectId, "local", "cfg", 1);
+        ClaimedRun claimedRun = new ClaimedRun(runId, projectId, "local", "cfg", 1, "worker-test");
         AtomicBoolean firstClaim = new AtomicBoolean(true);
         when(dao.claimNextRun(anyString(), anyLong())).thenAnswer(invocation ->
                 firstClaim.getAndSet(false) ? Optional.of(claimedRun) : Optional.empty());
@@ -96,8 +96,8 @@ class WorkerLoopUnitTest {
         WorkerLoop loop = new WorkerLoop(properties, dao, executor, objectMapper);
         loop.start();
 
-        verify(dao, timeout(3_000)).requeueForRetry(runId, 25);
-        verify(dao, never()).finalizeRun(eq(runId), eq(RunStatus.ERROR), anyString());
+        verify(dao, timeout(3_000)).requeueForRetry(runId, 25, "worker-test");
+        verify(dao, never()).finalizeRun(eq(runId), eq(RunStatus.ERROR), anyString(), anyString());
         loop.stop();
     }
 
@@ -111,7 +111,7 @@ class WorkerLoopUnitTest {
 
         UUID runId = UUID.randomUUID();
         UUID projectId = UUID.randomUUID();
-        ClaimedRun claimedRun = new ClaimedRun(runId, projectId, "local", "cfg", 1);
+        ClaimedRun claimedRun = new ClaimedRun(runId, projectId, "local", "cfg", 1, "worker-test");
         AtomicBoolean firstClaim = new AtomicBoolean(true);
         when(dao.claimNextRun(anyString(), anyLong())).thenAnswer(invocation ->
                 firstClaim.getAndSet(false) ? Optional.of(claimedRun) : Optional.empty());
@@ -120,8 +120,8 @@ class WorkerLoopUnitTest {
         WorkerLoop loop = new WorkerLoop(properties, dao, executor, objectMapper);
         loop.start();
 
-        verify(dao, timeout(3_000)).finalizeRun(eq(runId), eq(RunStatus.ERROR), anyString());
-        verify(dao, never()).requeueForRetry(eq(runId), anyLong());
+        verify(dao, timeout(3_000)).finalizeRun(eq(runId), eq(RunStatus.ERROR), anyString(), eq("worker-test"));
+        verify(dao, never()).requeueForRetry(eq(runId), anyLong(), anyString());
         loop.stop();
     }
 
@@ -135,7 +135,7 @@ class WorkerLoopUnitTest {
         UUID runId = UUID.randomUUID();
         UUID projectId = UUID.randomUUID();
         UUID checkId = UUID.randomUUID();
-        ClaimedRun claimedRun = new ClaimedRun(runId, projectId, "local", "cfg", 1);
+        ClaimedRun claimedRun = new ClaimedRun(runId, projectId, "local", "cfg", 1, "worker-test");
         CheckRow check = new CheckRow(
                 checkId,
                 "health",
@@ -164,13 +164,13 @@ class WorkerLoopUnitTest {
                     "{}",
                     List.of(), null, null, null);
         });
-        doAnswer(invocation -> null).when(dao).persistResultsAndFinalize(eq(runId), any(), eq(RunStatus.PASSED));
+        doAnswer(invocation -> null).when(dao).persistResultsAndFinalize(eq(runId), any(), eq(RunStatus.PASSED), eq("worker-test"));
 
         WorkerLoop loop = new WorkerLoop(properties, dao, executor, objectMapper);
         loop.start();
 
         verify(dao, timeout(3_000).atLeastOnce()).isRunCancelled(runId);
-        verify(dao, never()).persistResultsAndFinalize(eq(runId), any(), any());
+        verify(dao, never()).persistResultsAndFinalize(eq(runId), any(), any(), anyString());
         loop.stop();
     }
 

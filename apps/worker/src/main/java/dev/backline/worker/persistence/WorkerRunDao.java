@@ -49,6 +49,35 @@ public class WorkerRunDao {
             WHERE id = ?
             """;
 
+    // Ownership fence: locked_by must still match the claiming worker so a stale
+    // worker cannot finalize or requeue a run that was recovered and re-claimed
+    // by another worker while it was executing.
+    private static final String FINALIZE_UPDATE = """
+            UPDATE runs
+            SET status = ?,
+                finished_at = now(),
+                updated_at = now(),
+                locked_by = NULL,
+                locked_at = NULL,
+                timeout_at = NULL,
+                last_error = CASE WHEN ? IN ('ERROR') THEN ? ELSE last_error END
+            WHERE id = ?
+              AND status = 'RUNNING'
+              AND locked_by = ?
+            """;
+
+    private static final String REQUEUE_UPDATE = """
+            UPDATE runs
+            SET status = 'QUEUED',
+                next_attempt_at = ?,
+                locked_by = NULL,
+                locked_at = NULL,
+                updated_at = now()
+            WHERE id = ?
+              AND status = 'RUNNING'
+              AND locked_by = ?
+            """;
+
     private final JdbcTemplate jdbcTemplate;
     private final TransactionTemplate transactionTemplate;
     private final ObjectMapper objectMapper;
@@ -94,7 +123,8 @@ public class WorkerRunDao {
                     candidate.projectId(),
                     candidate.environment(),
                     candidate.configHash(),
-                    candidate.attemptCount() + 1));
+                    candidate.attemptCount() + 1,
+                    workerId));
         });
     }
 
@@ -102,13 +132,32 @@ public class WorkerRunDao {
         writeCheckResultInternal(runId, row);
     }
 
-    public void persistResultsAndFinalize(UUID runId, List<CheckResultRow> rows, RunStatus terminalStatus) {
-        transactionTemplate.executeWithoutResult(status -> {
+    /**
+     * Persists all check results and moves the run to its terminal status in one transaction.
+     * The terminal update is fenced on the claim owner ({@code locked_by}); when ownership was
+     * lost because another worker recovered and re-claimed the run, nothing is written and
+     * {@code false} is returned so a stale attempt cannot overwrite the new owner's execution.
+     */
+    public boolean persistResultsAndFinalize(
+            UUID runId, List<CheckResultRow> rows, RunStatus terminalStatus, String ownerWorkerId) {
+        Boolean finalized = transactionTemplate.execute(status -> {
+            int claimed = jdbcTemplate.update(FINALIZE_UPDATE,
+                    terminalStatus.name(),
+                    terminalStatus.name(),
+                    (String) null,
+                    runId,
+                    ownerWorkerId);
+            if (claimed != 1) {
+                status.setRollbackOnly();
+                return Boolean.FALSE;
+            }
             for (CheckResultRow row : rows) {
                 writeCheckResultInternal(runId, row);
             }
-            finalizeRunInternal(runId, terminalStatus, null);
+            appendTerminalRunEvent(runId, terminalStatus, null);
+            return Boolean.TRUE;
         });
+        return Boolean.TRUE.equals(finalized);
     }
 
     private void writeCheckResultInternal(UUID runId, CheckResultRow row) {
@@ -166,41 +215,33 @@ public class WorkerRunDao {
                 row.responseContractStatus() == null ? null : row.responseContractStatus().name());
     }
 
-    public void finalizeRun(UUID runId, RunStatus terminalStatus) {
-        finalizeRun(runId, terminalStatus, null);
+    public boolean finalizeRun(UUID runId, RunStatus terminalStatus, String ownerWorkerId) {
+        return finalizeRun(runId, terminalStatus, null, ownerWorkerId);
     }
 
     /**
-     * Moves a run from {@link RunStatus#RUNNING} to a terminal status and appends a lifecycle event.
-     *
-     * @throws IllegalStateException when no {@code RUNNING} row matches {@code runId}
+     * Moves a run from {@code RUNNING} to a terminal status and appends a lifecycle event.
+     * Returns {@code true} when the run was finalized; {@code false} when this worker no longer
+     * owns the claim (the run was recovered or re-claimed elsewhere) and must not be touched.
      */
-    public void finalizeRun(UUID runId, RunStatus terminalStatus, String message) {
-        transactionTemplate.executeWithoutResult(status -> finalizeRunInternal(runId, terminalStatus, message));
+    public boolean finalizeRun(UUID runId, RunStatus terminalStatus, String message, String ownerWorkerId) {
+        Boolean finalized = transactionTemplate.execute(status -> {
+            int rows = jdbcTemplate.update(FINALIZE_UPDATE,
+                    terminalStatus.name(),
+                    terminalStatus.name(),
+                    message,
+                    runId,
+                    ownerWorkerId);
+            if (rows != 1) {
+                return Boolean.FALSE;
+            }
+            appendTerminalRunEvent(runId, terminalStatus, message);
+            return Boolean.TRUE;
+        });
+        return Boolean.TRUE.equals(finalized);
     }
 
-    private void finalizeRunInternal(UUID runId, RunStatus terminalStatus, String message) {
-        int rows = jdbcTemplate.update(
-                """
-                        UPDATE runs
-                        SET status = ?,
-                            finished_at = now(),
-                            updated_at = now(),
-                            locked_by = NULL,
-                            locked_at = NULL,
-                            timeout_at = NULL,
-                            last_error = CASE WHEN ? IN ('ERROR') THEN ? ELSE last_error END
-                        WHERE id = ?
-                          AND status = 'RUNNING'
-                        """,
-                terminalStatus.name(),
-                terminalStatus.name(),
-                message,
-                runId);
-        if (rows != 1) {
-            throw new IllegalStateException("Expected exactly one RUNNING run to finalize for id " + runId);
-        }
-
+    private void appendTerminalRunEvent(UUID runId, RunStatus terminalStatus, String message) {
         String eventType =
                 switch (terminalStatus) {
                     case PASSED -> RunEventType.COMPLETED.name();
@@ -224,29 +265,23 @@ public class WorkerRunDao {
     }
 
     /**
-     * Clears partial results, returns the run to {@link RunStatus#QUEUED}, and schedules the next attempt.
+     * Clears partial results, returns the run to {@link RunStatus#QUEUED}, and schedules the next
+     * attempt. Fenced like {@link #finalizeRun}: returns {@code false} without changing state when
+     * another worker owns the claim.
      */
-    public void requeueForRetry(UUID runId, long backoffMs) {
-        transactionTemplate.executeWithoutResult(status -> {
-            jdbcTemplate.update("DELETE FROM check_results WHERE run_id = ?", runId);
-            int rows = jdbcTemplate.update(
-                    """
-                            UPDATE runs
-                            SET status = 'QUEUED',
-                                next_attempt_at = ?,
-                                locked_by = NULL,
-                                locked_at = NULL,
-                                updated_at = now()
-                            WHERE id = ?
-                              AND status = 'RUNNING'
-                            """,
+    public boolean requeueForRetry(UUID runId, long backoffMs, String ownerWorkerId) {
+        return Boolean.TRUE.equals(transactionTemplate.execute(status -> {
+            int rows = jdbcTemplate.update(REQUEUE_UPDATE,
                     Timestamp.from(Instant.now().plusMillis(backoffMs)),
-                    runId);
+                    runId,
+                    ownerWorkerId);
             if (rows != 1) {
-                throw new IllegalStateException("Expected exactly one RUNNING run to requeue for id " + runId);
+                return Boolean.FALSE;
             }
+            jdbcTemplate.update("DELETE FROM check_results WHERE run_id = ?", runId);
             insertRunEvent(runId, RETRY_SCHEDULED, "Scheduled retry after " + backoffMs + " ms backoff");
-        });
+            return Boolean.TRUE;
+        }));
     }
 
     /**
