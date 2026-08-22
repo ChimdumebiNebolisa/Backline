@@ -496,6 +496,36 @@ class HttpCheckExecutorTest {
         assertThat(outcome.errorCode()).isEqualTo("STATUS_MISMATCH");
     }
 
+    @Test
+    void oversizedBodyFailsWithBodyTooLargeInsteadOfBuffering() {
+        int size = ResponseLimits.RESPONSE_BODY_MAX_BYTES + 1;
+        server.enqueue(new MockResponse().setBody("x".repeat(size)));
+        HttpCheckExecutor executor = new HttpCheckExecutor(defaultClient(), mapper);
+
+        HttpCheckRequest request = new HttpCheckRequest(
+                null, "k", "n", HttpMethod.GET, server.url("/huge").toString(), 200, null, null, null);
+
+        HttpCheckOutcome outcome = executor.execute(request);
+        assertThat(outcome.status()).isEqualTo(CheckResultStatus.ERROR);
+        assertThat(outcome.errorCode()).isEqualTo("BODY_TOO_LARGE");
+        assertThat(outcome.actualStatus()).isEqualTo(200);
+        assertThat(outcome.errorMessage()).contains(String.valueOf(ResponseLimits.RESPONSE_BODY_MAX_BYTES));
+    }
+
+    @Test
+    void bodyAtExactLimitIsStillEvaluatedNormally() {
+        server.enqueue(new MockResponse()
+                .setBody("x".repeat(ResponseLimits.RESPONSE_BODY_MAX_BYTES))
+                .addHeader("Content-Type", "text/plain"));
+        HttpCheckExecutor executor = new HttpCheckExecutor(defaultClient(), mapper);
+
+        HttpCheckRequest request = new HttpCheckRequest(
+                null, "k", "n", HttpMethod.GET, server.url("/edge").toString(), 200, null, null, null);
+
+        HttpCheckOutcome outcome = executor.execute(request);
+        assertThat(outcome.status()).isEqualTo(CheckResultStatus.PASSED);
+    }
+
     private static HttpClient defaultClient() {
         return HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(5))

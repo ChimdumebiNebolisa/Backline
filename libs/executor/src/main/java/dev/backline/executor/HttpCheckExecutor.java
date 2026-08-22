@@ -10,7 +10,9 @@ import dev.backline.core.check.HttpMethod;
 import dev.backline.core.constants.ResponseLimits;
 import dev.backline.executor.contract.ResponseContractCapturer;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -98,9 +100,26 @@ public final class HttpCheckExecutor {
 
         Instant start = Instant.now();
         try {
-            HttpResponse<String> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-            long latencyMs = Duration.between(start, Instant.now()).toMillis();
-            return evaluateResponse(request, response, latencyMs);
+            // Streamed so an oversized body is cut off at RESPONSE_BODY_MAX_BYTES instead of
+            // being buffered in full before preview truncation.
+            HttpResponse<InputStream> response =
+                    httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofInputStream());
+            try (InputStream bodyStream = response.body()) {
+                byte[] bodyBytes = readBounded(bodyStream, ResponseLimits.RESPONSE_BODY_MAX_BYTES);
+                long latencyMs = Duration.between(start, Instant.now()).toMillis();
+                if (bodyBytes == null) {
+                    return HttpCheckOutcome.withoutContract(
+                            CheckResultStatus.ERROR,
+                            response.statusCode(),
+                            latencyMs,
+                            "BODY_TOO_LARGE",
+                            "Response body exceeded " + ResponseLimits.RESPONSE_BODY_MAX_BYTES + " bytes",
+                            null,
+                            List.of());
+                }
+                String contentType = response.headers().firstValue("Content-Type").orElse(null);
+                return evaluateResponse(request, response.statusCode(), contentType, decodeUtf8(bodyBytes), latencyMs);
+            }
         } catch (HttpTimeoutException ex) {
             return HttpCheckOutcome.withoutContract(
                     CheckResultStatus.ERROR,
@@ -129,6 +148,34 @@ public final class HttpCheckExecutor {
                     "Interrupted while waiting for HTTP response",
                     null,
                     List.of());
+        }
+    }
+
+    /**
+     * Reads up to {@code maxBytes}; returns {@code null} as soon as the stream proves larger.
+     */
+    private static byte[] readBounded(InputStream in, int maxBytes) throws IOException {
+        ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
+        byte[] chunk = new byte[8192];
+        int read;
+        while ((read = in.read(chunk)) != -1) {
+            if (buffer.size() + read > maxBytes) {
+                return null;
+            }
+            buffer.write(chunk, 0, read);
+        }
+        return buffer.toByteArray();
+    }
+
+    private static String decodeUtf8(byte[] bytes) {
+        try {
+            return StandardCharsets.UTF_8.newDecoder()
+                    .onMalformedInput(CodingErrorAction.REPLACE)
+                    .onUnmappableCharacter(CodingErrorAction.REPLACE)
+                    .decode(ByteBuffer.wrap(bytes))
+                    .toString();
+        } catch (CharacterCodingException ex) {
+            throw new IllegalStateException("Failed to decode response body", ex);
         }
     }
 
@@ -162,9 +209,8 @@ public final class HttpCheckExecutor {
         };
     }
 
-    private HttpCheckOutcome evaluateResponse(HttpCheckRequest request, HttpResponse<String> response, long latencyMs) {
-        int actualStatus = response.statusCode();
-        String body = response.body() == null ? "" : response.body();
+    private HttpCheckOutcome evaluateResponse(HttpCheckRequest request, int actualStatusCode, String contentType, String body, long latencyMs) {
+        int actualStatus = actualStatusCode;
         String preview = buildResponsePreview(body);
 
         CheckResultStatus status = CheckResultStatus.PASSED;
@@ -206,7 +252,7 @@ public final class HttpCheckExecutor {
             errorMessage = null;
         }
 
-        String contentType = response.headers().firstValue("Content-Type").orElse(null);
+        // contentType is threaded from the caller because the body is streamed and decoded there.
         boolean assertionParsedJson = !assertionDefs.isEmpty() && !body.isEmpty()
                 && assertionResults.stream().noneMatch(r -> r.message() != null && r.message().contains("empty"));
         // Prefer capture when the body is JSON-shaped or assertions already depended on JSON parsing.
