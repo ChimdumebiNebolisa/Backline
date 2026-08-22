@@ -23,10 +23,9 @@ public abstract class PostgresTestBase {
 
     @DynamicPropertySource
     static void registerDataSource(DynamicPropertyRegistry registry) {
-        var postgres = PostgresTestContainers.postgres();
-        registry.add("spring.datasource.url", postgres::getJdbcUrl);
-        registry.add("spring.datasource.username", postgres::getUsername);
-        registry.add("spring.datasource.password", postgres::getPassword);
+        registry.add("spring.datasource.url", PostgresTestContainers::jdbcUrl);
+        registry.add("spring.datasource.username", PostgresTestContainers::username);
+        registry.add("spring.datasource.password", PostgresTestContainers::password);
         registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
         registry.add("spring.flyway.enabled", () -> "true");
         registry.add("spring.flyway.locations", () -> "classpath:db/migration");
