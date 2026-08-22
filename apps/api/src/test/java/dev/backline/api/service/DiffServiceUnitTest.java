@@ -151,6 +151,30 @@ class DiffServiceUnitTest {
     }
 
     @Test
+    void computeDiff_bothFailingWithSameStatusCode_staysStillFailing() {
+        UUID runId = UUID.randomUUID();
+        UUID prevId = UUID.randomUUID();
+        UUID projectId = UUID.randomUUID();
+        RunEntity current = run(runId, projectId, "local");
+        RunEntity previous = run(prevId, projectId, "local");
+
+        CheckResultEntity prevResult = result(prevId, "api", CheckResultStatus.FAILED);
+        prevResult.setActualStatus(500);
+        CheckResultEntity curResult = result(runId, "api", CheckResultStatus.FAILED);
+        curResult.setActualStatus(500);
+
+        when(runRepository.findById(runId)).thenReturn(Optional.of(current));
+        when(checkResultRepository.findByRunId(runId)).thenReturn(List.of(curResult));
+        when(checkResultRepository.findByRunId(prevId)).thenReturn(List.of(prevResult));
+        when(runRepository.findPreviousCompletedRun(any(), any(), any(), any(), any(Pageable.class)))
+                .thenReturn(List.of(previous));
+
+        var diff = diffService.computeDiff(runId);
+        assertThat(diff.entries()).singleElement()
+                .satisfies(e -> assertThat(e.changeType()).isEqualTo(RunDiffChangeType.STILL_FAILING));
+    }
+
+    @Test
     void computeDiff_bothFailingWithAssertionChange_reportsAssertionChanged() {
         UUID runId = UUID.randomUUID();
         UUID prevId = UUID.randomUUID();

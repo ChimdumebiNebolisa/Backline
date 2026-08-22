@@ -31,8 +31,11 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Computes regression diffs between a run and the chronologically prior completed run (same project and environment,
- * {@link RunStatus#PASSED} or {@link RunStatus#FAILED} with {@code finished_at} set, queued before the current run).
+ * Computes regression diffs between a run and a baseline (same project and environment,
+ * {@link RunStatus#PASSED} or {@link RunStatus#FAILED} with {@code finished_at} set). The default
+ * strategy picks the most recently finished completed run other than the current one; because runs
+ * can complete concurrently, "most recent by finished_at" is not guaranteed to have been submitted
+ * before the current run.
  *
  * <p>Latency changes are flagged when both sides have {@code latency_ms} and either the absolute delta exceeds 100ms
  * or the relative delta exceeds 50% of the baseline (non-zero previous latency).
