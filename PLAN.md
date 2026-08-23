@@ -1,5 +1,19 @@
 # Backline Plan
 
+## Repository minimization maintenance (2026-08-23)
+
+Status: DONE
+
+Objective: Remove verified duplicate, abandoned, obsolete, and unused repository content without changing runtime behavior or documented product scope.
+
+Verification:
+
+1. Remove only candidates proven unreferenced or redundant -> verify: source/reference audit and module compilation
+2. Preserve architecture and security guardrails -> verify: `checkGuardrails` and `checkContractDrift`
+3. Confirm behavior remains intact -> verify: `clean check`
+
+Result: Source and test compilation passed; all module test tasks and both repository guardrail checks passed. Coverage gates passed for six modules. API and worker coverage gates remained below their thresholds because Docker-backed integration tests were skipped in the local environment.
+
 ## Purpose
 
 This plan executes the full Backline build scope in a controlled sequence. The sequence is not a staged release model. Every step belongs to the same build scope.
