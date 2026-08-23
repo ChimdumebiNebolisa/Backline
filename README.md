@@ -126,7 +126,7 @@ docker compose --profile demo up -d sample-api
 
 so the stack on **8080/5432/8081** comes entirely from Compose.
 
-**CLI distribution:** `:apps:cli:installDist` is the expected way to get a `backline` script on your `PATH`; it requires the Gradle **Application** plugin on `apps:cli` (Task 4). If Gradle reports that the task is unknown, use `./gradlew :apps:cli:build` until the integration pass adds the launcher.
+**CLI distribution:** `:apps:cli:installDist` is the expected way to get a `backline` script on your `PATH`; it produces the launcher under `apps/cli/build/install/backline/bin/`.
 
 ## Running tests
 
