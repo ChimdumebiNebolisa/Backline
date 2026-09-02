@@ -1,56 +1,27 @@
-# CI integration guide
+# CI integration
 
-Backline supports CI-friendly outputs for regression policy checks.
-
-## Policy-aware run command
-
-Configure thresholds in `backline.yml`:
+Run validation on ordinary pull requests, then allow `verify` only on trusted code with Docker access.
 
 ```yaml
-policy:
-  max_newly_failing: 0
-  max_errored_checks: 0
-  max_latency_regression_ms: 200
+- name: Verify rollout compatibility
+  run: |
+    backline verify \
+      --artifact-dir build/backline/runs \
+      --json-output build/backline/summary.json \
+      --junit-output build/backline/junit.xml \
+      --no-color
+
+- name: Upload Backline evidence
+  if: always()
+  uses: actions/upload-artifact@v4
+  with:
+    name: backline-evidence
+    path: build/backline/**
+    if-no-files-found: error
 ```
 
-Or use named presets on the CLI (overrides config `policy` when set):
+Use the CI provider's JUnit upload/report action for `build/backline/junit.xml`. Preserve the whole run directory even when the command fails or is interrupted; partial events and bounded logs are diagnostic evidence.
 
-```bash
-backline run --enforce-policy --policy strict
-backline run --enforce-policy --policy warn-only
-```
+The repository CI runs format, unit tests, vet, Linux race tests, schema checks, vulnerability and secret scans, and six Linux Docker E2E fixtures. The release workflow cross-builds Linux amd64/arm64, macOS amd64/arm64, and Windows amd64 archives with SHA-256 checksums.
 
-| Preset | `max_newly_failing` | `max_errored_checks` | `max_latency_regression_ms` |
-|--------|---------------------|----------------------|-----------------------------|
-| `strict` | 0 | 0 | unset (no limit) |
-| `warn-only` | unset | unset | unset (no enforcement) |
-
-Then execute:
-
-```bash
-backline run --enforce-policy --junit-output ./build/backline-policy.xml
-backline run --enforce-policy --policy strict --junit-output ./build/backline-policy.xml
-```
-
-Behavior:
-
-- Exit code `0`: run completed and policy passed.
-- Exit code `5`: run reached terminal status but policy failed.
-- Exit code `1/2/3/4`: API/runtime/validation timeout paths (non-policy failures).
-
-## Baseline selection
-
-Use diff baseline options to control comparison target:
-
-```bash
-backline run --enforce-policy --baseline PREVIOUS_COMPLETED
-backline run --enforce-policy --baseline LAST_PASSED
-backline run --enforce-policy --baseline FIXED_RUN --baseline-run-id <runId>
-```
-
-The same options are available on `backline diff`.
-
-## GitHub Actions template
-
-A starter workflow lives at `.github/workflows/backline-ci.yml`.
-It runs `./gradlew clean test` and uploads JUnit artifacts for module tests.
+Read [CI security](ci-security.md) before enabling Docker execution for pull requests.

@@ -1,20 +1,25 @@
 # Known limitations
 
-Backline is intentionally scoped as a **local-first regression ledger**, not a full API platform. Current limitations include:
-
-- **Single-tenant**: there is no authentication, authorization, or per-user isolation.
-- **No interactive API client**: Backline is not a Postman replacement; it does not focus on ad-hoc request building or GUI workflows.
-- **JSONPath assertions**: supported operators are intentionally limited to deterministic single-operator rules (`equals`, `exists`, `not_equals`, `contains`, `regex`, `gt`, `gte`, `lt`, `lte`).
-- **Response previews** are bounded (for example, **4096 bytes**) to avoid storing large payloads by default.
-- **Worker retries** apply to **runtime / worker errors** only, not to failed HTTP assertions (a failed assertion is a failed check, not a retryable infrastructure fault).
-- **Markdown reports** and optional **JSON report artifacts** (`backline report --json-output`).
-- **Schema migrations** are owned by the **API** process (Flyway on startup). The worker assumes the database schema matches the migrations shipped with the API.
-- **Sample API** ships **intentional failures** and odd shapes for demos; do not treat it as a production service.
-
-- **Diff baseline**: comparison uses the most recent **completed** run (status **PASSED** or **FAILED**) for the same project and environment that was **queued before the current run**; **CANCELLED** and **ERROR** runs are skipped as previous baselines. Status-code and assertion changes are reported even when a check stays failing, so a shift such as `500 → 404` is not hidden behind a generic still-failing label. There is **no persisted baseline preference** (`baseline set/show`); that optional UX was DROPPED from the quality roadmap because it was never added to `PRD.md`.
-- **Observed JSON response contracts** capture path and type structure only (never scalar values). This detects observed-response drift; it is **not** OpenAPI validation and cannot prove that a field is formally required or optional. Capture is bounded and may truncate. Additive drift warns by default and does not fail the HTTP check status by itself.
-- **Response body bound**: check execution reads at most 10 MB of a response body; larger bodies fail the check with `BODY_TOO_LARGE` instead of being buffered.
-- **No load testing**, fuzzing, or contract testing against arbitrary OpenAPI documents in this build.
-- **No cloud sync**, SaaS hosting workflow, or team permission model.
-
-See also the root [README.md](../README.md) troubleshooting section for operational issues.
+1. Coverage is limited by configured workloads; a pass is not proof.
+2. Controls reduce false attribution but do not prove causality.
+3. Reused baseline workloads must tolerate repeated execution against evolving state.
+4. Shared state is not reset between scenarios, so order matters.
+5. Execution is sequential and does not reproduce concurrent races.
+6. Backline runs one instance per component per revision; it does not model fleets, quorum, autoscaling, or load balancing.
+7. Headless consumer selection may require project-controlled gating.
+8. At least one addressable component and one primary port per component are required.
+9. Custom TLS readiness is project-owned.
+10. Orchestration is Docker Compose only; Kubernetes is out of scope.
+11. Backline does not clone production state or inspect shared-service semantics.
+12. Shared-service upgrades are not modeled; one candidate-defined environment serves both revisions.
+13. Backline performs no automatic migration safety analysis or inferred down migration.
+14. Prepared rollback makes a different claim from raw rollback.
+15. Components must exist in both revisions; candidate-only component additions/removals are unsupported.
+16. Release components do not receive host filesystem volumes.
+17. Remote environments are rejected by default.
+18. Application and workload nondeterminism must be stabilized by the project.
+19. Host workload dependencies are project-owned.
+20. Redaction and secret classification are best effort.
+21. Backline builds and executes trusted code and is not a sandbox.
+22. Project commands can make external network calls.
+23. Backline verifies rollouts; it does not deploy.

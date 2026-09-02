@@ -4,9 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0b0b0d" />
-    <meta name="description" content="Backline is a local-first API regression ledger for backend developers." />
+    <meta name="description" content="Backline verifies mixed-version and rollback compatibility for trusted stateful services." />
+    <meta property="og:title" content="Backline | Test the rollout, not just the release" />
+    <meta property="og:description" content="Run base and candidate revisions against the same state, then verify fresh base processes after rollback." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://backline-site-xi.vercel.app/" />
+    <meta property="og:image" content="https://backline-site-xi.vercel.app/og.svg" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="canonical" href="https://backline-site-xi.vercel.app/" />
-    <title>Backline | API regression history</title>
+    <title>Backline | Rollout compatibility verifier</title>
   </head>
   <body>
     <a class="skip-link" href="#main-content">Skip to content</a>
@@ -22,9 +28,9 @@
           <span aria-hidden="true">Menu</span>
         </button>
         <nav class="site-nav" id="site-nav" aria-label="Primary navigation">
-          <a href="#workflow">Workflow</a>
-          <a href="#architecture">Architecture</a>
-          <a href="#quick-start">Quick start</a>
+          <a href="#lifecycle">Lifecycle</a>
+          <a href="#controls">Controls</a>
+          <a href="#rollback">Rollback</a>
           <a href="https://github.com/ChimdumebiNebolisa/Backline/tree/main/docs">Docs</a>
           <a class="nav-github" href="https://github.com/ChimdumebiNebolisa/Backline">GitHub</a>
         </nav>
@@ -34,185 +40,179 @@
     <main id="main-content">
       <section class="hero shell" id="top" aria-labelledby="hero-title">
         <div class="hero-copy reveal" data-reveal>
-          <p class="eyebrow">Terminal-first API regression ledger</p>
-          <h1 id="hero-title">Regression history for APIs <em>that change.</em></h1>
-          <p class="hero-lede">Backline gives backend teams a durable trail from HTTP check to CI decision.</p>
-          <div class="setup-strip" aria-label="Install Backline">
-            <span>Install Backline</span>
-            <code>./gradlew :apps:cli:installDist</code>
+          <p class="eyebrow">Rollout compatibility verifier</p>
+          <h1 id="hero-title">Test the rollout, <em>not just the release.</em></h1>
+          <p class="hero-lede">Run base and candidate revisions against the same state. Then stop the candidate and find out whether fresh base processes still work.</p>
+          <div class="question-pair" aria-label="Questions Backline answers">
+            <p><span>01</span>Can both versions operate on the same evolving state?</p>
+            <p><span>02</span>Does the base still work after candidate traffic and rollback?</p>
+          </div>
+          <div class="setup-strip" aria-label="Run Backline">
+            <span>One command</span>
+            <code>backline verify</code>
           </div>
           <div class="hero-actions">
-            <a class="button button-light" href="https://github.com/ChimdumebiNebolisa/Backline/blob/main/README.md#quick-start">Open setup guide <span aria-hidden="true">-&gt;</span></a>
-            <a class="text-link" href="https://github.com/ChimdumebiNebolisa/Backline/tree/main/docs">Read the docs <span aria-hidden="true">+</span></a>
+            <a class="button button-light" href="https://github.com/ChimdumebiNebolisa/Backline/blob/main/README.md#quick-start">Run the quick start <span aria-hidden="true">-&gt;</span></a>
+            <a class="text-link" href="https://github.com/ChimdumebiNebolisa/Backline/tree/main/examples/rollout-demo">Open the demos <span aria-hidden="true">+</span></a>
           </div>
         </div>
-        <section class="evidence-window hero-evidence reveal" aria-label="Authentic Backline CLI output" data-reveal>
-          <div class="evidence-window-bar"><span>Backline CLI</span><span>failed run and diff</span></div>
-          <pre><code><span class="dim">$</span> cd examples/sample-api
-<span class="dim">$</span> backline run --timeout-seconds 120
-RUN_ID: dc1aad4c-48b7-44f8-9849-6df62de09d8a
-status: QUEUED
-<span class="danger">status: FAILED</span>
 
-<span class="dim">$</span> backline diff dc1aad4c-48b7-44f8-9849-6df62de09d8a
-[NEWLY_FAILING]
-<span class="danger">- broken-endpoint (Broken endpoint) null -&gt; FAILED</span>
+        <section class="evidence-window hero-evidence reveal" aria-label="Observed safe rollout output" data-reveal>
+          <div class="evidence-window-bar"><span>backline verify</span><span>safe rollout</span></div>
+          <pre><code><span class="dim">Controls</span>
+  <span class="success">PASS</span>  base after transition
+  <span class="success">PASS</span>  candidate before coexistence
+  <span class="success">PASS</span>  base with candidate running
 
-[NEWLY_PASSING]
-<span class="success">- get-user (Fetch user) null -&gt; PASSED</span>
-<span class="success">- health (Health check) null -&gt; PASSED</span></code></pre>
-          <p class="evidence-note">Verbatim CLI output from the documented Docker demo.</p>
+<span class="dim">Mixed-version compatibility</span>
+  <span class="success">PASS</span>  No incompatibility detected in the
+        configured controls and scenarios.
+
+<span class="dim">Rollback compatibility [RAW]</span>
+  <span class="success">PASS</span>  The base revision passed the configured
+        rollback checks directly against state
+        left by candidate cutover and traffic.
+
+<span class="success">Result: PASS</span></code></pre>
+          <p class="evidence-note">Observed from the deterministic PostgreSQL demo. A pass is bounded by configured workload coverage.</p>
         </section>
       </section>
 
-      <section class="system-band" aria-label="Backline system boundary">
-        <div class="shell system-chain">
-          <span>CLI</span><i aria-hidden="true">-&gt;</i><span>API</span><i aria-hidden="true">-&gt;</i><span>Worker</span><i aria-hidden="true">-&gt;</i><span>PostgreSQL</span><i aria-hidden="true">-&gt;</i><span>Reports</span>
+      <section class="system-band" aria-label="Backline verdicts">
+        <div class="shell verdict-strip">
+          <span><b>Mixed version</b> PASS · FAIL · INCONCLUSIVE</span>
+          <span><b>Rollback</b> PASS · FAIL · INCONCLUSIVE</span>
+          <span><b>Mode</b> RAW · PREPARED</span>
         </div>
       </section>
 
-      <section class="report-proof shell section" id="ledger" aria-labelledby="report-title">
+      <section class="report-proof shell section" id="evidence" aria-labelledby="evidence-title">
         <div class="section-intro reveal" data-reveal>
-          <p class="eyebrow">Verified output</p>
-          <h2 id="report-title">Generated Markdown reports show what failed.</h2>
-          <p>Backline writes a reviewable report from stored API data: run status, check counts, failures, latency, and comparison context.</p>
+          <p class="eyebrow">Failure evidence</p>
+          <h2 id="evidence-title">A clean release can still leave bad state behind.</h2>
+          <p>Backline preserves the exact stage, scenario, command, revision, exit code, reason, and bounded log path that produced the verdict.</p>
         </div>
-        <section class="evidence-window report-output reveal" aria-label="Authentic generated Backline Markdown report" data-reveal>
-          <div class="evidence-window-bar"><span>backline report</span><span>sample-api</span></div>
-          <pre><code># Backline Run Report
+        <section class="evidence-window report-output reveal" aria-label="Observed raw rollback failure output" data-reveal>
+          <div class="evidence-window-bar"><span>backline verify</span><span>raw rollback failure</span></div>
+          <pre><code><span class="dim">Mixed-version compatibility</span>
+  <span class="success">PASS</span>  No incompatibility detected in the configured mixed-version controls and scenarios.
 
-## Run summary
-- **Project**: sample-api (`sample-api`)
-- **Environment**: local
-- **Run ID**: dc1aad4c-48b7-44f8-9849-6df62de09d8a
-- **Status**: <span class="danger">FAILED</span>
-- **Attempt count**: 1
+<span class="dim">Rollback compatibility [RAW]</span>
+  <span class="danger">FAIL</span>  The base revision failed against state left by candidate cutover and traffic.
+  <span class="danger">Reason: ROLLBACK_SCENARIO_FAILED</span>
 
-## Check summary
-| Metric  | Count |
-| ------- | ----- |
-| Total   | 3     |
-| Passed  | 2     |
-| Failed  | 1     |
-| Errored | 0     |
+<span class="dim">Failed scenario</span>
+  Stage:      rollback
+  Scenario:   base reads candidate traffic
+  Step:       read candidate-created item
+  Target:     base.api
+  Exit code:  1
 
-## Failed checks
-- **Result status**: <span class="danger">FAILED</span>
-- **HTTP status**: 500
-- **Error code**: STATUS_MISMATCH
-- **Error message**: Expected status 200 but was 500</code></pre>
-          <p class="evidence-note">Verbatim Markdown report excerpt from the same failed sample run.</p>
+<span class="danger">Result: FAIL</span></code></pre>
+          <p class="evidence-note">Observed after candidate traffic wrote a representation the fresh base could not read.</p>
         </section>
       </section>
 
-      <section class="workflow-section shell section" id="workflow" aria-labelledby="workflow-title">
+      <section class="workflow-section shell section" id="lifecycle" aria-labelledby="lifecycle-title">
         <div class="section-heading reveal" data-reveal>
-          <h2 id="workflow-title">Keep the evidence close to the API change.</h2>
-          <p>Backline turns a YAML check into durable evidence without becoming a browser dashboard.</p>
+          <p class="eyebrow">The lifecycle</p>
+          <h2 id="lifecycle-title">One shared state. Two revisions. No silent restore.</h2>
+          <p>Every phase is sequential so the evidence has a stable order and a clear owner.</p>
         </div>
         <ol class="workflow-rows reveal" data-reveal>
-          <li>
-            <div><h3>Define the check</h3><p>Keep expected statuses, latency limits, and assertions in <code>backline.yml</code>.</p></div>
-            <code>backline.yml</code>
-          </li>
-          <li>
-            <div><h3>Run it through the worker</h3><p>The CLI submits the run, while the worker executes checks and stores immutable results.</p></div>
-            <code>backline run</code>
-          </li>
-          <li>
-            <div><h3>Compare what changed</h3><p>History and diff expose new failures, newly passing checks, latency changes, and missing checks.</p></div>
-            <code>backline diff &lt;runId&gt;</code>
-          </li>
+          <li><span class="step-number">01</span><div><h3>Baseline</h3><p>Start base components and establish base-only behavior.</p></div><code>base</code></li>
+          <li><span class="step-number">02</span><div><h3>Transition</h3><p>Run candidate-defined transition hooks while the original base stays alive.</p></div><code>base remains</code></li>
+          <li><span class="step-number">03</span><div><h3>Three controls</h3><p>Check base, candidate, then the same original base again before attribution.</p></div><code>control × 3</code></li>
+          <li><span class="step-number">04</span><div><h3>Coexistence</h3><p>Exercise base-to-candidate, candidate-to-base, and alternating scenarios.</p></div><code>base + candidate</code></li>
+          <li><span class="step-number">05</span><div><h3>Candidate cutover</h3><p>Stop base, run optional candidate-only hooks, then representative mutating traffic.</p></div><code>candidate only</code></li>
+          <li><span class="step-number">06</span><div><h3>Rollback</h3><p>Stop candidate, optionally prepare state, and start fresh base containers.</p></div><code>fresh base</code></li>
         </ol>
       </section>
 
-      <section class="policy-section shell section" id="ci" aria-labelledby="policy-title">
+      <section class="policy-section shell section" id="controls" aria-labelledby="controls-title">
         <div class="policy-copy reveal" data-reveal>
-          <h2 id="policy-title">Make a regression visible in CI.</h2>
-          <p>Policy evaluates stored results and a chosen baseline. Terminal output remains readable for people, while JUnit output gives a pipeline a structured failure artifact.</p>
-          <a class="inline-link" href="https://github.com/ChimdumebiNebolisa/Backline/blob/main/docs/ci-integration.md">Read the CI guide <span aria-hidden="true">-&gt;</span></a>
+          <p class="eyebrow">Attribution controls</p>
+          <h2 id="controls-title">Bracket the mixed stage before blaming it.</h2>
+          <p>A failed transition or broken candidate is not automatically a compatibility failure. Backline checks both revisions around coexistence so precondition failures become inconclusive instead of misleading.</p>
+          <a class="inline-link" href="https://github.com/ChimdumebiNebolisa/Backline/blob/main/docs/control-workloads.md">Read the control model <span aria-hidden="true">-&gt;</span></a>
         </div>
-        <div class="code-window reveal" data-reveal aria-label="Backline policy configuration and command">
-          <div class="code-window-bar"><span>backline.yml</span><span>policy</span></div>
-          <pre><code><span class="dim">policy:</span>
-  max_newly_failing: 0
-  max_errored_checks: 0
-  max_latency_regression_ms: 200
-
-<span class="dim">$</span> backline run --enforce-policy \
-  --junit-output ./build/backline-policy.xml
-
-<span class="accent">policy failed</span>  exit 5</code></pre>
+        <div class="control-stack reveal" data-reveal aria-label="Required control sequence">
+          <article><span>before candidate starts</span><strong>Base after transition</strong><code>original base process</code></article>
+          <article><span>before coexistence</span><strong>Candidate control</strong><code>candidate target mapping</code></article>
+          <article><span>candidate is running</span><strong>Base control again</strong><code>same original base process</code></article>
         </div>
       </section>
 
-      <section class="architecture-section section" id="architecture" aria-labelledby="architecture-title">
+      <section class="architecture-section section" id="rollback" aria-labelledby="rollback-title">
         <div class="shell architecture-layout">
           <div class="architecture-copy reveal" data-reveal>
-            <p class="eyebrow">System ownership</p>
-            <h2 id="architecture-title">Each part owns one part of the job.</h2>
-            <p>The CLI is the interface. The API persists history. The worker runs checks. PostgreSQL is the durable record. Reports use API data, not direct database access.</p>
+            <p class="eyebrow">Rollback claim</p>
+            <h2 id="rollback-title">Raw and prepared are different answers.</h2>
+            <p>Backline always states which claim it tested. Candidate stops before either mode, and fresh base containers start without restoring shared services or volumes.</p>
           </div>
-          <div class="architecture-chain reveal" data-reveal aria-label="Backline architecture chain">
-            <span>CLI</span><i aria-hidden="true">-&gt;</i><span>API</span><i aria-hidden="true">-&gt;</i><span>Worker</span><i aria-hidden="true">-&gt;</i><span>PostgreSQL</span><i aria-hidden="true">-&gt;</i><span>Reports</span>
+          <div class="mode-comparison reveal" data-reveal>
+            <article><span>RAW</span><h3>Untouched handoff</h3><p>Fresh base checks state directly after candidate cutover and traffic.</p></article>
+            <article><span>PREPARED</span><h3>Declared procedure</h3><p>Configured rollback hooks prepare state before fresh base checks it.</p></article>
           </div>
         </div>
       </section>
 
-      <section class="boundaries-section shell section" id="boundaries" aria-labelledby="boundaries-title">
+      <section class="boundaries-section shell section" id="safety" aria-labelledby="safety-title">
         <div class="section-heading reveal" data-reveal>
-          <h2 id="boundaries-title">What Backline does not do.</h2>
-          <p>It stays useful by keeping the job focused on repeatable API behavior and durable regression history.</p>
+          <p class="eyebrow">Safety boundary</p>
+          <h2 id="safety-title">Trusted code, isolated resources.</h2>
+          <p>Backline reduces accidental machine and Compose risk. It does not sandbox hostile project code.</p>
         </div>
         <div class="boundary-groups reveal" data-reveal>
-          <article><h3>Interactive API exploration</h3><p>Use a client such as Postman or Bruno when you need to explore requests by hand.</p></article>
-          <article><h3>Hosted monitoring</h3><p>There is no SaaS dashboard or cloud sync workflow. Run the stack locally or in CI.</p></article>
-          <article><h3>Load testing</h3><p>Use a dedicated load-testing tool for throughput and scale experiments.</p></article>
-          <article><h3>Unbounded evidence</h3><p>Response previews are bounded and sensitive headers are redacted according to repository guardrails.</p></article>
+          <article><h3>Committed candidate config</h3><p>Configuration and paths come from the resolved candidate Git object, not uncommitted files.</p></article>
+          <article><h3>Loopback-only ports</h3><p>Addressable components use Docker-assigned random ports bound to <code>127.0.0.1</code>.</p></article>
+          <article><h3>Owned cleanup</h3><p>Run labels and exact registries prevent broad or cross-run resource deletion.</p></article>
+          <article><h3>Not a sandbox</h3><p>Backline is not a sandbox. Hooks, workloads, and Dockerfiles are trusted code and can make external calls.</p></article>
         </div>
       </section>
 
       <section class="resources-section shell section" aria-labelledby="resources-title">
         <div class="section-heading reveal" data-reveal>
-          <h2 id="resources-title">Run the local demo.</h2>
-          <p>Start with the path a reviewer can use to see a passing and intentionally failing check.</p>
+          <p class="eyebrow">Start with evidence</p>
+          <h2 id="resources-title">Run all three public outcomes.</h2>
+          <p>The demo harness asserts verdicts, controls, reason codes, schemas, redaction, loopback ports, and absence of leaked Docker resources.</p>
         </div>
         <div class="resource-layout reveal" data-reveal>
-          <a class="featured-resource" href="https://github.com/ChimdumebiNebolisa/Backline/blob/main/docs/demo-script.md">
-            <span>Demo script</span>
-            <strong>Run the complete local path <b aria-hidden="true">-&gt;</b></strong>
-            <p>Docker, CLI, sample API, run history, diff, and a generated report.</p>
+          <a class="featured-resource" href="https://github.com/ChimdumebiNebolisa/Backline/tree/main/examples/rollout-demo">
+            <span>Rollout demo</span>
+            <strong>Safe, mixed failure, raw rollback failure <b aria-hidden="true">-&gt;</b></strong>
+            <p>One Bash or PowerShell entry point creates deterministic temporary Git repositories and PostgreSQL state.</p>
           </a>
           <div class="resource-links">
-            <a href="https://github.com/ChimdumebiNebolisa/Backline/blob/main/docs/api-examples.md"><span>API examples</span><strong>Inspect the API contracts <b aria-hidden="true">-&gt;</b></strong></a>
-            <a href="https://github.com/ChimdumebiNebolisa/Backline/blob/main/docs/known-limitations.md"><span>Known limitations</span><strong>Read the product boundaries <b aria-hidden="true">-&gt;</b></strong></a>
+            <a href="https://github.com/ChimdumebiNebolisa/Backline/blob/main/docs/config-reference.md"><span>Configuration</span><strong>Define the verification contract <b aria-hidden="true">-&gt;</b></strong></a>
+            <a href="https://github.com/ChimdumebiNebolisa/Backline/blob/main/docs/safety-and-trust.md"><span>Trust boundary</span><strong>Review Docker and CI safety <b aria-hidden="true">-&gt;</b></strong></a>
+            <a href="https://github.com/ChimdumebiNebolisa/Backline/blob/main/docs/known-limitations.md"><span>Limitations</span><strong>Understand what a pass cannot prove <b aria-hidden="true">-&gt;</b></strong></a>
           </div>
         </div>
       </section>
 
       <section class="quick-start shell section reveal" id="quick-start" aria-labelledby="quick-start-title" data-reveal>
         <div class="quick-start-copy">
-          <h2 id="quick-start-title">The complete local workflow.</h2>
-          <p>Start the stack, install the CLI, then run the included sample project. The README has the platform-specific details.</p>
+          <p class="eyebrow">Local first</p>
+          <h2 id="quick-start-title">Validate before creating anything.</h2>
+          <p>Doctor checks Git, Docker, Compose, executables, and artifact permissions. Verify creates only run-scoped resources.</p>
         </div>
-        <div class="code-window" aria-label="Complete local workflow commands">
-          <div class="code-window-bar"><span>quick start</span><span>local</span></div>
-          <pre><code><span class="dim">$</span> docker compose up --build -d
-<span class="dim">$</span> ./gradlew :apps:cli:installDist
-<span class="dim">$</span> export PATH="$PWD/apps/cli/build/install/backline/bin:$PATH"
-<span class="dim">$</span> backline doctor
-<span class="dim">$</span> cd examples/sample-api &amp;&amp; backline run
-<span class="dim">$</span> backline history
-<span class="dim">$</span> backline diff &lt;runId&gt;
-<span class="dim">$</span> backline report &lt;runId&gt;</code></pre>
+        <div class="code-window" aria-label="Backline quick start commands">
+          <div class="code-window-bar"><span>quick start</span><span>trusted repository</span></div>
+          <pre><code><span class="dim">$</span> go build -o backline ./cmd/backline
+<span class="dim">$</span> ./backline validate
+configuration is valid
+<span class="dim">$</span> ./backline doctor
+all prerequisites are available
+<span class="dim">$</span> ./backline verify</code></pre>
         </div>
       </section>
     </main>
 
     <footer class="site-footer">
       <div class="shell footer-inner">
-        <p><span class="brand-dot" aria-hidden="true">+</span> Backline / local-first API regression history</p>
-        <div><a href="https://github.com/ChimdumebiNebolisa/Backline">GitHub</a><a href="https://github.com/ChimdumebiNebolisa/Backline/tree/main/docs">Docs</a></div>
+        <p><span class="brand-dot" aria-hidden="true">+</span> Backline / rollout compatibility verifier</p>
+        <div><a href="https://github.com/ChimdumebiNebolisa/Backline">GitHub</a><a href="https://github.com/ChimdumebiNebolisa/Backline/tree/main/docs">Docs</a><a href="https://github.com/ChimdumebiNebolisa/Backline/blob/main/LICENSE">MIT</a></div>
       </div>
     </footer>
 

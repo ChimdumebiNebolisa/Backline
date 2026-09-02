@@ -1,45 +1,30 @@
-# Gradle
+# Build and test output
 build/
-.gradle/
-
-# Java
-*.class
-*.jar
-*.war
+dist/
+coverage/
+*.exe
+*.test
+*.out
 *.log
-!gradle/wrapper/gradle-wrapper.jar
 
-# IDEs
+# Dependencies and tools
+vendor/
+node_modules/
+
+# Local Backline inputs and artifacts
+.env
+.env.*
+.backline/
+
+# Editors and operating systems
 .idea/
 .vscode/
 *.iml
-out/
-
-# Maven (if used alongside)
-target/
-
-# OS
 .DS_Store
+Thumbs.db
+*.tmp
+*.swp
 
-# Local env (keep example tracked)
-.env
-!.env.example
-
-# jqwik
-.jqwik-database
-
-/data/
-/pgdata/
-
-# Local performance artifacts
-/perf/out/*
-!/perf/out/.gitkeep
-!/perf/out/*-summary.txt
-!/perf/out/queue-load-smoke.json
-!/perf/out/queue-load-small.json
-!/perf/out/queue-load-multi-worker.json
-
-# Local agent skill installs
+# Local agent installations
 .agents/
-
 skills-lock.json

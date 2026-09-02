@@ -1,0 +1,105 @@
+version: 1
+revisions:
+  base: HEAD^
+artifacts:
+  directory: .backline/runs
+shared_environment:
+  compose_file: compose.yml
+  services: [postgres]
+security:
+  passthrough_environment: [DEMO_SECRET, LOCALAPPDATA]
+  redact_environment: [DEMO_SECRET]
+release:
+  components:
+    - name: api
+      build:
+        context: .
+        dockerfile: Dockerfile
+      run:
+        internal_port: 8080
+        environment:
+          DB_HOST: postgres
+          DB_NAME: backline
+          DB_USER: backline
+          DB_PASSWORD: backline-demo
+        base_environment:
+          ROLE: base
+        candidate_environment:
+          ROLE: candidate
+        readiness:
+          type: http
+          path: /health
+          expected_status: 200
+lifecycle:
+  bootstrap: []
+  transition: []
+  candidate_only: []
+  rollback: []
+workloads:
+  defaults:
+    cwd_revision: candidate
+    timeout_seconds: 45
+  baseline:
+    - name: base smoke
+      steps:
+        - name: exercise redaction
+          command: [go, run, ./workload.go, leak]
+        - name: write base item
+          target: base.api
+          command: [go, run, ./workload.go, write, baseline, ACTIVE]
+        - name: read base item
+          target: base.api
+          command: [go, run, ./workload.go, read, baseline, ACTIVE]
+  controls:
+    base_after_transition:
+      reuse_baseline: true
+    candidate_before_coexistence:
+      reuse_baseline: true
+    base_with_candidate_running:
+      reuse_baseline: true
+  coexistence:
+    base_to_candidate:
+      - name: base writes candidate reads
+        steps:
+          - name: write through base
+            target: base.api
+            command: [go, run, ./workload.go, write, base-to-candidate, ACTIVE]
+          - name: read through candidate
+            target: candidate.api
+            command: [go, run, ./workload.go, read, base-to-candidate, ACTIVE]
+    candidate_to_base:
+      - name: candidate writes base reads
+        steps:
+          - name: write through candidate
+            target: candidate.api
+            command: [go, run, ./workload.go, write, candidate-to-base, "${DEMO_MIXED_STATUS}"]
+          - name: read through base
+            target: base.api
+            command: [go, run, ./workload.go, read, candidate-to-base, "${DEMO_MIXED_STATUS}"]
+    alternating:
+      - name: alternating reads
+        steps:
+          - name: read through base
+            target: base.api
+            command: [go, run, ./workload.go, read, base-to-candidate, ACTIVE]
+          - name: read through candidate
+            target: candidate.api
+            command: [go, run, ./workload.go, read, base-to-candidate, ACTIVE]
+  candidate_traffic:
+    - name: candidate writes cutover state
+      mutates_state: true
+      steps:
+        - name: write through candidate
+          target: candidate.api
+          command: [go, run, ./workload.go, write, candidate-traffic, "${DEMO_TRAFFIC_STATUS}"]
+        - name: verify through candidate
+          target: candidate.api
+          command: [go, run, ./workload.go, read, candidate-traffic, "${DEMO_TRAFFIC_STATUS}"]
+  rollback:
+    reuse_baseline: false
+    scenarios:
+      - name: base reads candidate traffic
+        steps:
+          - name: read candidate-created item
+            target: base.api
+            command: [go, run, ./workload.go, read, candidate-traffic, "${DEMO_ROLLBACK_STATUS}"]

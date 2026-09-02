@@ -1,242 +1,240 @@
 # Backline
 
-Backline is a local-first API regression ledger for backend developers.
+Backline tests the part of a deployment your normal test suite misses: the base and candidate revisions running against the same state, including whether the base revision still works after rollback.
 
-## What Backline is
+It answers two bounded questions:
 
-Backline stores **HTTP check definitions** and **run results** in PostgreSQL, executes checks asynchronously through a **worker**, and exposes **history, diff, and Markdown reports** through a REST API and a **Picocli-based CLI**. It is meant for repeatable API regression tracking on your machine or in a demo environment.
-
-## What it is not
-
-**Backline is not a Postman replacement.** Postman is an interactive request-builder and collaboration surface for ad-hoc calls. Backline is a **queryable regression ledger**: checks are versioned config, runs are durable records, and comparisons are first-class. Use Postman (or similar) to explore; use Backline to record whether behavior regressed.
-
-Backline is also **not** a load-testing tool, hosted SaaS monitor, multi-tenant platform, or general CI orchestrator. See [docs/known-limitations.md](docs/known-limitations.md).
-
-## Architecture (summary)
-
-- **CLI** (`apps/cli`): reads `backline.yml`, talks to the API over HTTP, waits on run status, renders history/diff, writes Markdown reports.
-- **API** (`apps/api`): validation, persistence, Flyway migrations, OpenAPI, Actuator health, run/diff/history endpoints.
-- **Worker** (`apps/worker`): claims `QUEUED` runs, executes HTTP checks (via `libs/executor`), writes results and terminal run status.
-- **PostgreSQL**: sole durable store (see `db/migration`).
-- **Sample API** (`apps/sample-api`): trivial Spring Boot app on **8081** with predictable passing, failing, slow, and schema-shift endpoints for demos.
-- **Report generator** (`libs/reporting`): builds Markdown from API DTOs already fetched by the CLI (no direct DB access).
-
-```mermaid
-flowchart LR
-  CLI -->|HTTP JSON| API
-  Worker -->|JDBC| DB[(PostgreSQL)]
-  API -->|JDBC| DB
-  Worker -->|HTTP| Targets[Your APIs]
-  Sample[Sample API :8081] --> Targets
-```
-
-## Prerequisites
-
-- **Java 21** (Gradle toolchain enforces this).
-- **Docker** (recommended) for `docker compose`, or a local PostgreSQL reachable with the JDBC URL in `.env`.
-- Optional: **curl** for manual health checks (included in API container image used by Compose health checks).
-
-## Quick start (demo path)
-
-From the repository root:
+1. Did the configured base and candidate workloads remain compatible while both revisions were running?
+2. After candidate cutover and traffic, did fresh base processes still pass the configured rollback checks?
 
 ```bash
-cp .env.example .env
-docker compose up --build -d
-./gradlew :apps:cli:installDist
-export PATH="$PWD/apps/cli/build/install/backline/bin:$PATH"
-backline doctor
-backline sample init
-backline sample serve
+backline verify
 ```
 
-In another terminal (same `PATH` if needed):
+A `PASS` means Backline detected no incompatibility in the configured controls and scenarios. It is not a proof that every production behavior is safe.
+
+## Requirements
+
+- Git
+- Docker Engine or Docker Desktop
+- Docker Compose v2
+- A trusted repository with a committed `backline.yml`
+
+Backline itself is one Go binary. It has no server, account, daemon, database, Java, Node.js, or Python runtime requirement. Project-owned hooks and workloads may require their own tools.
+
+## Install
+
+Download a pinned release archive and `SHA256SUMS` from GitHub Releases, then verify it before extracting:
 
 ```bash
-cd examples/sample-api
-backline run
-backline history
-backline diff <runId>
-backline report <runId>
+sha256sum --check SHA256SUMS
+tar -xzf backline-vX.Y.Z-linux-amd64.tar.gz
+install backline "$HOME/.local/bin/backline"
 ```
 
-To emit a machine-readable artifact for CI or post-processing:
+PowerShell:
+
+```powershell
+Get-FileHash .\backline-vX.Y.Z-windows-amd64.zip -Algorithm SHA256
+# Compare the printed digest with SHA256SUMS, then extract backline.exe.
+```
+
+Or build the current module with Go 1.26:
 
 ```bash
-backline report <runId> --json-output ./build/backline-report.json
+go install github.com/ChimdumebiNebolisa/Backline/cmd/backline@latest
 ```
 
-You can choose the diff baseline strategy:
+## Minimal configuration
 
-```bash
-backline diff <runId> --baseline LAST_PASSED
-backline diff <runId> --baseline FIXED_RUN --fixed-run-id <baselineRunId>
-```
-
-For policy-enforced runs, the same baseline options apply:
-
-```bash
-backline run --enforce-policy --baseline LAST_PASSED
-```
-
-### Optional CI policy enforcement
-
-Backline can evaluate run outcomes against policy thresholds in `backline.yml`:
+Configuration is read from the resolved candidate commit, not from uncommitted checkout contents. This abbreviated example shows the required shape; start from the complete [rollout demo configuration](examples/rollout-demo/fixture/backline.yml) and see the [configuration reference](docs/config-reference.md).
 
 ```yaml
-policy:
-  max_newly_failing: 0
-  max_errored_checks: 0
-  max_latency_regression_ms: 200
+version: 1
+revisions:
+  base: origin/main
+
+shared_environment:
+  compose_file: compose.yml
+  services: [postgres]
+
+release:
+  components:
+    - name: api
+      build:
+        context: .
+        dockerfile: Dockerfile
+      run:
+        internal_port: 8080
+        readiness:
+          type: http
+          path: /health
+          expected_status: 200
+
+workloads:
+  defaults:
+    cwd_revision: candidate
+  baseline: # project command scenarios
+  controls: # all three attribution controls
+  coexistence: # base_to_candidate, candidate_to_base, alternating
+  candidate_traffic: # includes a mutates_state: true scenario
+  rollback: # reuse_baseline or explicit scenarios
 ```
 
-Then run:
+## Quick start
+
+From a clean checkout with Docker running:
 
 ```bash
-backline run --enforce-policy --junit-output ./build/backline-policy.xml
+go build -o backline ./cmd/backline
+./backline validate
+./backline doctor
+./backline verify
 ```
 
-When policy checks fail, the command exits with code `5` and prints violations. The optional JUnit file lets CI systems annotate the failure.
-
-**PowerShell** examples:
+PowerShell:
 
 ```powershell
-Copy-Item .env.example .env
-docker compose up --build -d
-.\gradlew.bat :apps:cli:installDist
-$env:Path = "$PWD\apps\cli\build\install\backline\bin;$env:Path"
-backline doctor
-backline sample init
-backline sample serve
+go build -o backline.exe .\cmd\backline
+.\backline.exe validate
+.\backline.exe doctor
+.\backline.exe verify
 ```
 
-```powershell
-Set-Location examples\sample-api
-backline run
-backline history
-backline diff <runId>
-backline report <runId>
+Backline performs preflight before it creates resources, builds detached base and candidate worktrees sequentially, starts one candidate-defined Compose environment, and binds addressable components only to Docker-assigned `127.0.0.1` ports.
+
+## What runs
+
+The lifecycle is deliberate:
+
+1. Base-only baseline.
+2. Candidate transition while the original base remains alive.
+3. Base-after-transition control using that original process.
+4. Candidate startup and candidate-before-coexistence control.
+5. Base-with-candidate-running control, again using the original base.
+6. Directional coexistence scenarios.
+7. Base shutdown, candidate-only cutover hooks, and candidate traffic.
+8. Candidate shutdown, optional rollback preparation, fresh base startup, and rollback checks.
+
+The three controls reduce false attribution. They do not prove causality. See [control workloads](docs/control-workloads.md) and the [lifecycle model](docs/lifecycle-model.md).
+
+## Observed demo output
+
+Safe rollout:
+
+```text
+Controls
+  PASS         base after transition
+  PASS         candidate before coexistence
+  PASS         base with candidate running
+
+Mixed-version compatibility
+  PASS         No incompatibility detected in the configured mixed-version controls and scenarios.
+
+Rollback compatibility [RAW]
+  PASS         The base revision passed the configured rollback checks directly against state left by candidate cutover and traffic.
+
+Result: PASS
 ```
 
-**Sample API in Docker (optional profile):** instead of `backline sample serve`, you can run:
+Raw rollback failure:
+
+```text
+Mixed-version compatibility
+  PASS         No incompatibility detected in the configured mixed-version controls and scenarios.
+
+Rollback compatibility [RAW]
+  FAIL         The base revision failed against state left by candidate cutover and traffic.
+  Reason: ROLLBACK_SCENARIO_FAILED
+
+Result: FAIL
+```
+
+Run the deterministic fixtures with [Bash or PowerShell](examples/rollout-demo/README.md):
+
+- `safe`: mixed `PASS`, raw rollback `PASS`.
+- `mixed-failure`: controls pass, then coexistence fails.
+- `rollback-failure`: mixed passes, candidate traffic writes incompatible state, fresh base fails.
+- `prepared-rollback`, `handoff`, and `candidate-only-failure`: advanced lifecycle coverage.
+
+## Raw and prepared rollback
+
+- `RAW` means fresh base processes are checked directly against state left by candidate cutover and traffic.
+- `PREPARED` means configured rollback hooks transformed or prepared state before fresh base processes were checked.
+
+The mode is always disclosed. A prepared pass is a claim about the configured rollback procedure, not untouched candidate-written state. See [rollback modes](docs/rollback-modes.md).
+
+Candidate-only hooks run after base stops and before candidate traffic. Components may also define common, base-specific, and candidate-specific environment values without duplicating component definitions.
+
+## Workload handoff
+
+Host hooks and workloads receive `BACKLINE_SHARED_DIR`, a run-scoped writable directory for nonsecret identifiers such as record IDs. Scenario steps also receive isolated scenario directories. Backline does not copy either directory into artifacts and does not treat them as secret stores.
+
+See [workload authoring](docs/workload-authoring.md).
+
+## Results and artifacts
+
+Verdicts are `PASS`, `FAIL`, or `INCONCLUSIVE`. Overall status can also be `ERROR`. Stage outcomes are `PASS`, `FAIL`, `ERROR`, `SKIPPED`, or `INCOMPLETE`.
+
+Each run writes schema-version-1 artifacts under `.backline/runs` by default:
+
+- `report.md`
+- `summary.json`
+- `events.jsonl`
+- `resolved-config.redacted.yml`
+- bounded logs and build evidence
+- optional JUnit XML
+
+Use `--json-output` or `--junit-output` to copy machine-readable results to an explicit path. Full reason-code and exit-code semantics are documented in [verdicts and reason codes](docs/verdicts-and-reason-codes.md).
+
+## CI
 
 ```bash
-docker compose --profile demo up -d sample-api
+backline verify \
+  --json-output build/backline/summary.json \
+  --junit-output build/backline/junit.xml \
+  --artifact-dir build/backline/runs
 ```
 
-so the stack on **8080/5432/8081** comes entirely from Compose.
+Configure CI to upload `build/backline/**` with `if: always()` so partial and failing evidence is preserved. Upload `junit.xml` with the CI provider's JUnit reporter. See [CI integration](docs/ci-integration.md) and [CI security](docs/ci-security.md).
 
-**CLI distribution:** `:apps:cli:installDist` is the expected way to get a `backline` script on your `PATH`; it produces the launcher under `apps/cli/build/install/backline/bin/`.
+## Trust and safety boundary
 
-## Running tests
+Backline builds and executes repository hooks and workloads. That code is trusted; Backline is not a sandbox. Docker access is effectively host-level privilege on many systems. Do not run untrusted fork revisions with Docker credentials, repository secrets, or privileged runners.
 
-```bash
-./gradlew test
+By default Backline rejects remote Docker contexts, external resources, host bind mounts, Docker socket mounts, privileged containers, host namespaces, devices, escaping config/secret files, and non-loopback published ports. Unsafe flags require visible operator opt-in and never widen cleanup ownership.
+
+Read [safety and trust](docs/safety-and-trust.md), [known limitations](docs/known-limitations.md), and [troubleshooting](docs/troubleshooting.md) before adopting it in CI.
+
+## Commands
+
+```text
+backline verify [flags]
+backline validate [flags]
+backline doctor [flags]
+backline version
+backline help [command]
 ```
 
-Focused:
+Run `backline help <command>` for the exact flag contract.
 
-```bash
-./gradlew :apps:sample-api:test
-./gradlew :libs:reporting:test
-./gradlew :apps:api:test
-./gradlew :apps:worker:test
-./gradlew :apps:cli:test
-```
+## Project documentation
 
-Windows: prefix with `.\gradlew.bat`.
+- [Configuration reference](docs/config-reference.md)
+- [Workload authoring](docs/workload-authoring.md)
+- [Control workloads](docs/control-workloads.md)
+- [Lifecycle model](docs/lifecycle-model.md)
+- [Rollback modes](docs/rollback-modes.md)
+- [Verdicts and reason codes](docs/verdicts-and-reason-codes.md)
+- [Architecture](docs/architecture.md)
+- [CI integration](docs/ci-integration.md)
+- [CI security](docs/ci-security.md)
+- [Safety and trust](docs/safety-and-trust.md)
+- [Troubleshooting](docs/troubleshooting.md)
+- [Known limitations](docs/known-limitations.md)
+- [Acceptance trace](docs/acceptance-trace.md)
 
-## Performance testing
-
-Backline includes a local perf harness under [perf/README.md](perf/README.md).
-
-```powershell
-.\perf\run-local.ps1 -Profile smoke
-.\perf\run-local.ps1 -Profile small
-.\perf\run-local.ps1 -Profile multi-worker
-```
-
-Detailed setup, outputs, limitations, and pass/fail criteria live in `perf/README.md`.
-
-## Module layout
-
-```txt
-apps/
-  api/          Spring Boot REST API + persistence (Flyway)
-  worker/       Spring Boot worker loop
-  cli/          Picocli CLI distribution
-  sample-api/   Demo-only HTTP service (:8081)
-libs/
-  core/         Shared DTOs, enums, API wrappers
-  config/       backline.yml parsing + validation
-  executor/     HTTP execution + assertions (worker)
-  reporting/    Markdown report generation
-db/migration/   Flyway SQL
-examples/sample-api/
-  backline.yml  Canonical demo checks
-docs/           API examples, limitations, demo script
-```
-
-## API documentation
-
-- **Swagger UI:** `http://localhost:8080/swagger-ui.html` (may redirect to `swagger-ui/index.html`).
-- **OpenAPI JSON:** `http://localhost:8080/v3/api-docs`
-
-Copy/paste **curl** samples: [docs/api-examples.md](docs/api-examples.md).
-
-CI integration and policy gating details: [docs/ci-integration.md](docs/ci-integration.md).
-Quality and runtime hardening checklist: [docs/audit-playbook.md](docs/audit-playbook.md).
-Cross-module contracts: [docs/contracts.md](docs/contracts.md).
-Operations runbook: [docs/runbook.md](docs/runbook.md).
-
-## Quality snapshot
-
-Coverage floors are enforced by `./gradlew check` (JaCoCo). Module line floors match the Q10 table in `PLAN.md`; API and worker also enforce branch floors (0.40 / 0.35). CI publishes a per-module coverage summary (including API branch) on every PR.
-
-**Q14 signed off 2026-07-20** using the weighted rubric in [docs/audit-playbook.md §8](docs/audit-playbook.md): overall **9.8** (every dimension >= 9.0). Q12 (persisted baseline UX) was **DROPPED** because it was never added to `PRD.md`.
-
-## Public site
-
-The standalone landing page lives in [`site/`](site/README.md). It is a Vite/TypeScript static site with its own lockfile and CI; it is not a Gradle module, does not render a dashboard, and does not require the API, worker, or PostgreSQL to build.
-
-```bash
-cd site
-npm ci
-npm run typecheck
-npm run lint
-npm test
-npm run build
-npm run browser:test
-```
-
-Quick audit command:
-
-```bash
-./scripts/audit-strength.sh
-```
-
-## Demo path (detailed)
-
-Step-by-step reviewer script: [docs/demo-script.md](docs/demo-script.md).
-
-## Known limitations
-
-Product and scope limits: [docs/known-limitations.md](docs/known-limitations.md).
-
-## Troubleshooting
-
-| Issue | What to try |
-| --- | --- |
-| Docker not running | Start **Docker Desktop** (Windows/macOS) or the Docker engine service (Linux), then re-run `docker compose up`. |
-| Port **8080** or **8081** in use | Change host mapping in `docker-compose.yml`, or stop the conflicting process. For the sample API locally, set `BACKLINE_SAMPLE_PORT` in `.env` and align `backline.yml` URLs. |
-| Database / Flyway errors on first start | If data is disposable: `docker compose down -v` to remove the `pgdata` volume, then `docker compose up --build` again. |
-| Worker not picking up runs | Confirm the **worker** container is running and logs show DB connectivity; ensure runs reach `QUEUED` via `POST /api/runs` / `backline run`. |
-| `./gradlew test` fails with `IllegalStateException: Could not find a valid Docker environment` | API and worker integration tests use **Testcontainers** and require a running Docker engine. Start **Docker Desktop** (Windows/macOS) or the Docker daemon (Linux). On Windows, ensure WSL 2 integration is enabled in Docker Desktop settings. If Docker is unavailable, Testcontainers tests are skipped automatically; non-Docker tests still run. |
-| Running integration suites against an existing PostgreSQL (`BACKLINE_TEST_JDBC_URL`) | When the Testcontainers client cannot reach your Docker engine but Docker itself works, set `BACKLINE_TEST_JDBC_URL`, `BACKLINE_TEST_DB_USER`, and `BACKLINE_TEST_DB_PASSWORD` to run the same suites against an already-started PostgreSQL. The database **must be empty and dedicated to a single module's test run** (worker suites claim any queued run; leftovers from other suites or previous runs break them). Create a fresh database per module per run, e.g. `createdb bl_api && BACKLINE_TEST_JDBC_URL=jdbc:postgresql://localhost:5432/bl_api ... ./gradlew :apps:api:test`. CI always uses Testcontainers. |
-
-## Docker images
-
-Multi-stage **Dockerfiles** live under `apps/api/Dockerfile`, `apps/worker/Dockerfile`, and `apps/sample-api/Dockerfile`. Compose file: `docker-compose.yml` (project name **`backline`**). Validate with `docker compose config`.
+The previous API regression ledger is preserved by annotated tag `legacy/api-regression-ledger-v1`.
 
 ## License
 
