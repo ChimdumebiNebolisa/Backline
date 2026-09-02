@@ -13,7 +13,7 @@ func loadMinimal(t *testing.T) []byte {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return data
+	return []byte(strings.ReplaceAll(string(data), "\r\n", "\n"))
 }
 
 func TestParseAppliesDefaultsAndSubstitutes(t *testing.T) {

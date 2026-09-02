@@ -124,6 +124,7 @@ func TestEnvironmentFilePathSubstitutionIsSinglePass(t *testing.T) {
 }
 
 func TestPrepareUsesNonHeadCandidateAndAppliesDirtyRuleOnlyToHead(t *testing.T) {
+	t.Setenv("GITHUB_BASE_REF", "")
 	root := t.TempDir()
 	runTestGit(t, root, "init")
 	runTestGit(t, root, "config", "user.email", "backline-tests@example.invalid")
