@@ -1,0 +1,66 @@
+version: 1
+
+revisions:
+  base: origin/main
+
+shared_environment:
+  compose_file: backline.compose.yml
+  services: [postgres]
+
+release:
+  components:
+    - name: api
+      build:
+        context: .
+        dockerfile: apps/api/Dockerfile
+      run:
+        internal_port: 8080
+        scheme: http
+        environment:
+          DATABASE_URL: ${DATABASE_URL}
+        readiness:
+          type: http
+          path: /health
+
+workloads:
+  baseline:
+    - name: base is healthy
+      steps:
+        - name: smoke base
+          target: base.api
+          command: ["python", "scripts/backline/smoke.py"]
+  controls:
+    base_after_transition:
+      reuse_baseline: true
+    candidate_before_coexistence:
+      reuse_baseline: true
+    base_with_candidate_running:
+      reuse_baseline: true
+  coexistence:
+    base_to_candidate:
+      - name: candidate reads base data
+        steps:
+          - name: create through base
+            target: base.api
+            command: ["python", "scripts/backline/create.py"]
+          - name: read through candidate
+            target: candidate.api
+            command: ["python", "scripts/backline/read.py"]
+    candidate_to_base:
+      - name: base reads candidate data
+        steps:
+          - name: create through candidate
+            target: candidate.api
+            command: ["python", "scripts/backline/create.py"]
+          - name: read through base
+            target: base.api
+            command: ["python", "scripts/backline/read.py"]
+  candidate_traffic:
+    - name: candidate mutates state
+      mutates_state: true
+      steps:
+        - name: candidate traffic
+          target: candidate.api
+          command: ["python", "scripts/backline/candidate_traffic.py"]
+  rollback:
+    reuse_baseline: true

@@ -9,16 +9,19 @@ const [html, css, robots, sourceNote] = await Promise.all([
   readFile(new URL('../public/demo/SOURCE.md', import.meta.url), 'utf8'),
 ]);
 
-test('landing page exposes the verified product narrative', () => {
+test('landing page presents the rollout verifier contract', () => {
   for (const phrase of [
-    'backline run',
-    'backline history',
-    'backline diff',
-    'backline report',
-    'exit 5',
-    'PostgreSQL',
-    'Hosted monitoring',
-    'What Backline does not do.',
+    'backline verify',
+    'Mixed-version compatibility',
+    'Rollback compatibility [RAW]',
+    'base after transition',
+    'candidate before coexistence',
+    'base with candidate running',
+    'ROLLBACK_SCENARIO_FAILED',
+    'RAW',
+    'PREPARED',
+    'A pass is bounded by configured workload coverage.',
+    'Backline is not a sandbox',
   ]) {
     assert.ok(html.includes(phrase), `expected page to contain ${phrase}`);
   }
@@ -32,6 +35,8 @@ test('landing page includes accessible structure and repository links', () => {
     'aria-controls="site-nav"',
     'rel="canonical" href="https://backline-site-xi.vercel.app/"',
     'https://github.com/ChimdumebiNebolisa/Backline',
+    'rel="icon"',
+    'property="og:image"',
   ]) {
     assert.ok(html.includes(phrase), `expected page to contain ${phrase}`);
   }
@@ -40,17 +45,15 @@ test('landing page includes accessible structure and repository links', () => {
   assert.ok(css.includes('@fontsource-variable/geist'), 'expected self-hosted Geist font import');
 });
 
-test('landing page uses authentic demo text and an install-first setup path', () => {
-  assert.match(html, /\.\/gradlew :apps:cli:installDist/);
-  // installDist alone does not put `backline` on PATH; quick-start must match README.
-  assert.match(html, /export PATH="\$PWD\/apps\/cli\/build\/install\/backline\/bin:\$PATH"/);
-  assert.match(html, /broken-endpoint \(Broken endpoint\) null -&gt; FAILED/);
-  assert.match(html, /Expected status 200 but was 500/);
+test('landing page uses observed demo evidence and current install path', () => {
+  assert.match(html, /go build -o backline \.\/cmd\/backline/);
+  assert.match(html, /The base revision failed against state left by candidate cutover and traffic\./);
+  assert.match(html, /base reads candidate traffic/);
   assert.match(html, /README\.md#quick-start/);
-  assert.doesNotMatch(html, /<img\b/i);
-  assert.doesNotMatch(html, /\.webp/);
-  assert.match(sourceNote, /GitHub Actions run 29216457678/);
-  assert.match(sourceNote, /without fabrication/);
+  assert.doesNotMatch(html, /\.\/gradlew/);
+  assert.doesNotMatch(html, /Picocli|Spring Boot|Swagger|API regression ledger/);
+  assert.match(sourceNote, /2026-09-02/);
+  assert.match(sourceNote, /safe.*mixed-failure.*rollback-failure/s);
 });
 
 test('visible copy avoids typographic dash clutter', () => {

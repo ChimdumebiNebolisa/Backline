@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="Backline rollout compatibility verifier">
+  <rect width="1200" height="630" fill="#0b0b0d"/>
+  <path d="M0 94h1200M0 536h1200" stroke="#302f32"/>
+  <rect x="72" y="72" width="48" height="48" fill="none" stroke="#858184"/>
+  <text x="84" y="104" fill="#f3f1ee" font-family="monospace" font-size="19" font-weight="700">BL</text>
+  <text x="144" y="105" fill="#f3f1ee" font-family="monospace" font-size="23" font-weight="700">backline</text>
+  <text x="72" y="268" fill="#f3f1ee" font-family="Arial, sans-serif" font-size="76" font-weight="600">Test the rollout,</text>
+  <text x="72" y="354" fill="#d8d3cf" font-family="Arial, sans-serif" font-size="76" font-style="italic">not just the release.</text>
+  <text x="76" y="428" fill="#b0acab" font-family="monospace" font-size="24">mixed-version compatibility · rollback compatibility</text>
+  <rect x="899" y="458" width="229" height="72" fill="#f3f1ee"/>
+  <text x="937" y="504" fill="#111113" font-family="monospace" font-size="22" font-weight="700">backline verify</text>
+</svg>

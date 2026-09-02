@@ -4,115 +4,115 @@ on:
   pull_request:
   push:
     branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
-  verify:
+  unit:
+    name: unit (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.6'
+          cache: true
+      - name: Format check
+        if: runner.os != 'Windows'
+        run: test -z "$(gofmt -l cmd internal examples/rollout-demo/harness examples/rollout-demo/fixture/workload.go)"
+      - name: Unit and non-Docker integration tests
+        run: go test ./...
+      - name: Vet
+        run: go vet ./...
+
+  race:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Java 21
-        uses: actions/setup-java@v4
+      - uses: actions/checkout@v4
         with:
-          distribution: temurin
-          java-version: "21"
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.6'
+          cache: true
+      - run: go test -race ./...
 
-      - name: Guardrail checks
-        run: ./scripts/check-guardrails.sh
-
-      - name: Contract drift checks
-        run: ./scripts/check-contract-drift.sh
-
-      - name: Build and test
-        run: ./gradlew clean check
-        env:
-          CI: "true"
-
-      - name: Coverage summary
-        if: always()
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.6'
+          cache: true
+      - name: Dependency vulnerability scan
         run: |
-          python3 - <<'PY'
-          import glob, os, xml.etree.ElementTree as ET
-          lines = []
-          floors = {
-              ':apps:api': (0.65, 0.40),
-              ':apps:cli': (0.60, None),
-              ':apps:sample-api': (0.85, None),
-              ':apps:worker': (0.55, 0.35),
-              ':libs:config': (0.70, None),
-              ':libs:core': (0.50, None),
-              ':libs:executor': (0.74, None),
-              ':libs:reporting': (0.90, None),
-          }
-          for p in sorted(glob.glob('**/build/reports/jacoco/test/jacocoTestReport.xml', recursive=True)):
-              mod = ':' + p.split('/build/')[0].replace('/', ':')
-              root = ET.parse(p).getroot()
-              c = {e.attrib['type']: (int(e.attrib['missed']), int(e.attrib['covered']))
-                   for e in root.findall('counter')}
-              lm, lc = c['LINE']; lt = lm + lc; lp = (lc / lt * 100 if lt else 0)
-              bm, bc = c.get('BRANCH', (0, 0)); bt = bm + bc
-              bp = (bc / bt * 100 if bt else None)
-              fl, fb = floors.get(mod, (None, None))
-              parts = [f'{mod}: line={lp:.1f}%']
-              if fl is not None:
-                  parts.append(f'(floor {fl*100:.0f}%)')
-              if bp is not None:
-                  parts.append(f'branch={bp:.1f}%')
-                  if fb is not None:
-                      parts.append(f'(floor {fb*100:.0f}%)')
-              line = ' '.join(parts)
-              print(line)
-              lines.append(line)
-          summary = os.environ.get('GITHUB_STEP_SUMMARY')
-          if summary:
-              with open(summary, 'a', encoding='utf-8') as f:
-                  f.write('## JaCoCo coverage\n\n')
-                  f.write('```\n')
-                  f.write('\n'.join(lines) + '\n')
-                  f.write('```\n')
-          PY
-
-      - name: Upload JUnit test results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: gradle-test-results
-          path: |
-            **/build/test-results/test/*.xml
-            **/build/reports/tests/test/**
-
-      - name: Upload JaCoCo coverage reports
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: jacoco-coverage-reports
-          path: |
-            **/build/reports/jacoco/test/**
-
-  e2e-demo:
-    runs-on: ubuntu-latest
-    needs: verify
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Java 21
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "21"
-
-      - name: Full-stack E2E demo
-        run: ./scripts/ci-e2e-demo.sh
+          go install golang.org/x/vuln/cmd/govulncheck@v1.7.0
+          govulncheck ./...
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@v2
         env:
-          CI: "true"
-          BACKLINE_E2E_ARTIFACT_DIR: ${{ github.workspace }}/build/e2e-artifacts
-          BACKLINE_RUN_PERF_SMOKE: "true"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload E2E artifacts
-        uses: actions/upload-artifact@v4
-        if: always()
+  site:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          name: e2e-demo-artifacts
-          path: build/e2e-artifacts/**
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - run: npm ci
+      - run: npm audit
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run browser:test
+      - run: npm run lighthouse
+
+  docker-e2e:
+    needs: [unit, race, security, site]
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.6'
+          cache: true
+      - name: Public rollout demos
+        run: bash ./examples/rollout-demo/run.sh
+        env:
+          BACKLINE_DEMO_ARTIFACT_ROOT: ${{ github.workspace }}/build/demo-artifacts
+      - name: Prepared rollback and lifecycle fixtures
+        run: |
+          bash ./examples/rollout-demo/run.sh prepared-rollback
+          bash ./examples/rollout-demo/run.sh handoff
+          bash ./examples/rollout-demo/run.sh candidate-only-failure
+        env:
+          BACKLINE_DEMO_ARTIFACT_ROOT: ${{ github.workspace }}/build/demo-artifacts
+      - name: Upload run artifacts and JUnit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rollout-demo-artifacts
+          path: build/demo-artifacts/**
+          if-no-files-found: error

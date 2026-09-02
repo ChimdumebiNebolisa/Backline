@@ -1,175 +1,80 @@
 # Backline Guardrails
 
-## Purpose
+## Scope
 
-This document defines enforceable rules for building Backline. If a rule cannot be checked, rewrite the rule until it can be checked.
+- Build only the rollout compatibility verifier defined by `PRD.md`.
+- Keep exactly two primary compatibility verdicts.
+- Do not add a server, database, daemon, dashboard, account, hosted control plane, plugin system, deployment action, schema linter, load test, or production-state integration.
+- Treat shared services generically through Docker Compose.
+- Treat project hooks and workloads as trusted arbitrary programs, not as sandboxed input.
 
-## Scope guardrails
+## CLI and configuration
 
-- Do not add features that are not listed in `PRD.md`.
-- Do not use staged release labels such as `v1`, `v2`, or `phase`.
-- Do not add authentication, cloud sync, frontend dashboards, load testing, AI analysis, Kafka, Kubernetes, or plugins.
-- Do not turn Backline into a Postman replacement.
-- Do not add a feature because it is interesting. Add it only if it supports the PRD.
-- If scope needs to change, update `PRD.md` before coding.
+- Expose only `verify`, `validate`, `doctor`, `version`, and help/version aliases.
+- Configuration comes from the committed candidate ref before worktrees are created.
+- Reject duplicate YAML keys, unknown fields, missing substitutions, invalid targets, invalid directional order, unsafe paths, and reserved `BACKLINE_` variables.
+- CLI safety flags may relax policy; YAML may not.
+- Commands remain nonempty argument arrays with no implicit shell or textual command concatenation.
 
-## Architecture guardrails
+## Attribution
 
-- Do not change ownership boundaries without updating `ARCHITECTURE.md`.
-- CLI must communicate with the API over HTTP.
-- CLI must not write directly to PostgreSQL.
-- CLI must not execute production checks.
-- Worker owns check execution.
-- API owns persistence, history, filtering, pagination, diff data, and structured errors.
-- PostgreSQL is the only durable state store.
-- Report generation must use API data, not direct database access.
-- Sample API must stay isolated from production API logic.
+- A failed baseline, build, bootstrap, transition, candidate startup, or candidate control is not a compatibility failure by itself.
+- Preserve the original base through transition and both base controls.
+- Run all three required controls before directional coexistence evidence can pass.
+- Continue independent evidence when the environment remains usable; do not add fail-fast behavior.
+- Candidate-only or candidate-traffic incompleteness prevents rollback PASS but does not hide a directly observed rollback FAIL.
+- Rollback mode is RAW only with no rollback hook and PREPARED whenever rollback hooks are configured.
+- Pass wording remains bounded to configured workloads and never claims universal safety or sole causality.
 
-## Code quality guardrails
+## Docker and machine safety
 
-- Write the minimum code needed to satisfy the current documented requirement.
-- Do not add speculative abstractions.
-- Do not refactor unrelated code.
-- Do not duplicate business logic between CLI, API, and worker.
-- Do not hide business rules inside controllers or command classes.
-- Keep validation deterministic.
-- Keep error handling explicit.
-- Prefer small services with clear responsibilities.
-- Do not create utility dumping grounds.
-- Do not leave dead code.
-- Do not leave placeholder logic in core flows.
-- Do not leave TODOs in must-have paths unless the blocker is documented in `PLAN.md`.
+- Label every owned resource with the current run ID.
+- Use unique Compose project/container names and Docker-assigned `127.0.0.1` ports.
+- Reject external/global resources, fixed ports, restart policies, replicas, host binds, Docker sockets, privileged containers, host namespaces, devices, unsafe config/secret paths, and non-loopback publications by default.
+- Reject nonlocal Docker contexts unless `--allow-remote-docker` is explicit.
+- Resolve paths and symlinks before use; reject escapes from candidate worktrees or configured roots.
+- Never infer that a reachable resource is disposable.
+- Never delete a resource lacking the current run label or an exact registered run path.
 
-## API guardrails
+## Secrets and artifacts
 
-- Every endpoint must have a documented request and response shape.
-- Every endpoint must return structured errors.
-- List endpoints must support pagination.
-- Filtering must be validated.
-- Unknown filters must fail clearly.
-- Invalid IDs must return a clear not-found or validation error.
-- API responses must not expose stack traces.
-- Controllers should delegate business logic to services.
-- OpenAPI documentation must reflect implemented endpoints.
+- Inherit a minimal host environment plus configured allowlisted names.
+- Register every nonempty substituted/env-file value for redaction.
+- Redact terminal, Markdown, JSON, JSONL, JUnit, build, hook, workload, readiness, and Docker output.
+- Persist only redacted resolved configuration; never persist raw normalized Compose interpolation or an environment-file body.
+- Bound every captured log and disclose truncation.
+- Do not copy arbitrary scenario or shared-handoff files into artifacts.
+- Do not send telemetry.
 
-## Database guardrails
+## Process execution
 
-- Every schema change must be done through Flyway migration.
-- No manual schema changes outside migrations.
-- Foreign keys are required for relational ownership.
-- Status fields must use constraints or validated enums.
-- Duplicate prevention must be enforced at the database level where possible.
-- Indexes must exist for common query patterns.
-- Run creation, worker claim, result writing, and finalization must be transactional.
-- A run must not be processed by two workers.
-- A run must not be finalized without result rows unless it ends in `ERROR`.
-- Result rows must be immutable after finalization unless a repair migration or documented admin action is added.
+- Use argument arrays and platform-safe process-tree termination.
+- Distinguish launch/control failures from launched project failures.
+- Capture exit code/signal, timeout, duration, stage, target, and bounded output.
+- Do not hide retries; scenario repeats are explicit and sequential.
 
-## Worker guardrails
+## Cleanup
 
-- Worker claim must use a concurrency-safe database transaction.
-- Worker must write run events for major status transitions.
-- Worker retries are only for worker/runtime errors.
-- Failed API assertions are test failures, not retryable infrastructure errors.
-- Worker must not silently skip checks.
-- Worker must mark unrecoverable execution failures as `ERROR`.
-- Worker must finalize every claimed run unless the process crashes.
-- Stale `RUNNING` recovery must be explicit if implemented.
+- Cleanup runs after success, non-pass, timeout, interruption, and internal error.
+- `--keep-on-failure` retains only a non-passing current run and prints exact cleanup commands.
+- Verify cleanup rather than assuming command success.
+- Cleanup errors remain separate and never overwrite compatibility evidence.
+- Never prune prior artifact directories automatically.
 
-## CLI guardrails
+## Testing
 
-- CLI output must be readable without requiring a web UI.
-- CLI commands must fail with actionable messages.
-- `backline doctor` must check API connectivity, config readability, and expected environment variables.
-- `backline run` must print the run ID.
-- `backline run` must make it clear whether it is waiting or returning immediately.
-- `backline sample init` must not overwrite existing files without explicit confirmation or a force flag.
-- `backline report` must print the generated file path.
+- Unit-test deterministic config, state, verdict, redaction, rendering, and safety rules.
+- Integration-test real Git and Docker behavior at their boundaries.
+- Linux CI runs required Docker tests without silent skips; unit tests run on Linux, macOS, and Windows.
+- Mandatory E2E fixtures prove safe, mixed-version failure, raw rollback failure, and prepared rollback behavior.
+- Security tests cover secrets, traversal/symlinks, unsafe Compose, remote Docker, loopback binding, fork trust, and cleanup ownership.
 
-## Sample data guardrails
+## Documentation
 
-- Sample config must run against the included sample API.
-- Sample must include at least one passing check.
-- Sample must include at least one intentionally failing check.
-- Sample must include at least one latency-sensitive check.
-- Sample must not require internet access.
-- Sample setup must be documented in the README.
-
-## Security and safety guardrails
-
-- Do not log secrets.
-- Redact configured sensitive headers such as `Authorization`, `Cookie`, and `Set-Cookie`.
-- Do not store full response bodies by default.
-- Store only a bounded response preview.
-- Limit maximum response preview size.
-- Observed JSON response contracts may store path/type structure and fingerprints only; never scalar values and never full response bodies.
-- Contract capture must be bounded (bytes inspected, depth, path count, serialized size) and must record truncation explicitly.
-- Set HTTP client timeouts.
-- Validate URLs before execution.
-- Do not follow redirects unless explicitly configured.
-- Do not allow file system writes outside expected report and example directories.
-- Do not execute shell commands from config files.
-
-## Testing guardrails
-
-Required tests:
-
-- Config parser unit tests.
-- Config validation unit tests.
-- API validation tests.
-- Repository or database integration tests with Testcontainers.
-- Migration smoke test from empty database.
-- Worker claim concurrency test.
-- Worker run execution test.
-- CLI command smoke tests.
-- Report generation test.
-- Sample config end-to-end test.
-
-Testing rules:
-
-- A feature is not complete without tests or a documented reason why it cannot be tested.
-- Use the narrowest test that proves the behavior.
-- Integration tests must use real PostgreSQL through Testcontainers.
-- Do not mock database behavior for transaction-critical logic.
-- Do not claim Docker setup works without running it.
-
-## Verification guardrails
-
-Every completed step in `PLAN.md` must include at least one verification artifact.
-
-Accepted verification artifacts:
-
-- Unit test output.
-- Integration test output.
-- CLI output.
-- API response output.
-- Docker Compose output.
-- Actuator health response.
-- Generated report file.
-- Migration output.
-- Screenshot only when a visual proof is useful.
-- Log excerpt only when proving worker or runtime behavior.
-
-Claims without verification are unverified.
-
-## Documentation guardrails
-
-- README must explain how to run, test, and demo the project.
-- README must include the sample path.
-- README must include known limitations.
-- README must explain why Backline is not a Postman replacement.
-- API examples must be copyable.
-- Architecture changes must be reflected in `ARCHITECTURE.md`.
-- Scope changes must be reflected in `PRD.md`.
-- Execution status changes must be reflected in `PLAN.md`.
+- Document intent and non-obvious constraints, especially configuration, attribution, process semantics, redaction, Compose safety, and cleanup.
+- Do not comment obvious code or leave TODOs in required execution paths.
+- README and site claims must match observed demo output.
 
 ## Definition of done
 
-The build is done only when:
-
-- All must-have PRD items are complete.
-- Core flows have verification artifacts.
-- Active blockers are resolved or explicitly accepted.
-- No unresolved guardrail violations remain.
-- The delivered system still matches `PRD.md` and `ARCHITECTURE.md`.
-- README provides a reviewer-friendly demo path.
+The active tree contains the native Go CLI, required demos, schemas, documentation, site, CI, and release automation; it contains no active Java regression-ledger product. All PRD acceptance criteria have a passing check or documentation artifact.

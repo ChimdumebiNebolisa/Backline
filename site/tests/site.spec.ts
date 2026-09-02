@@ -3,16 +3,15 @@ import { expect, test } from '@playwright/test';
 test('renders the landing page and primary paths on desktop', async ({ page }) => {
   await page.goto('/');
 
-  await expect(page).toHaveTitle('Backline | API regression history');
-  await expect(page.getByRole('heading', { name: 'Regression history for APIs that change.' })).toBeVisible();
-  const terminalOutput = page.getByRole('region', { name: 'Authentic Backline CLI output' });
-  const reportOutput = page.getByRole('region', { name: 'Authentic generated Backline Markdown report' });
+  await expect(page).toHaveTitle('Backline | Rollout compatibility verifier');
+  await expect(page.getByRole('heading', { name: 'Test the rollout, not just the release.' })).toBeVisible();
+  const terminalOutput = page.getByRole('region', { name: 'Observed safe rollout output' });
+  const reportOutput = page.getByRole('region', { name: 'Observed raw rollback failure output' });
 
-  await expect(terminalOutput).toContainText('broken-endpoint (Broken endpoint) null -> FAILED');
-  await expect(reportOutput).toContainText('Expected status 200 but was 500');
-  await expect(page.locator('img')).toHaveCount(0);
-  await expect(page.locator('[aria-label="Install Backline"]')).toContainText('./gradlew :apps:cli:installDist');
-  await expect(page.getByRole('link', { name: /Open setup guide/ })).toHaveAttribute(
+  await expect(terminalOutput).toContainText('Rollback compatibility [RAW]');
+  await expect(reportOutput).toContainText('Reason: ROLLBACK_SCENARIO_FAILED');
+  await expect(page.locator('[aria-label="Run Backline"]')).toContainText('backline verify');
+  await expect(page.getByRole('link', { name: /Run the quick start/ })).toHaveAttribute(
     'href',
     'https://github.com/ChimdumebiNebolisa/Backline/blob/main/README.md#quick-start',
   );
@@ -83,6 +82,7 @@ test('matches the desktop visual baseline', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto('/');
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
 
   await expect(page).toHaveScreenshot('landing-desktop.png', {
     animations: 'disabled',
@@ -95,6 +95,7 @@ test('matches the mobile visual baseline', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
 
   await expect(page).toHaveScreenshot('landing-mobile.png', {
     animations: 'disabled',

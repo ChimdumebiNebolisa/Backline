@@ -2,603 +2,103 @@
 
 ## Purpose
 
-This document defines Backline system boundaries, ownership, interfaces, data model, folder structure, and implementation constraints.
+Backline is a single-process Go CLI that verifies mixed-version and rollback compatibility for trusted Git revisions of Dockerized stateful services. `PRD.md` is the product scope; this document fixes ownership boundaries.
 
-Do not change responsibilities, add new layers, or introduce new services without updating this document first.
+## System shape
 
-## Architectural summary
-
-Backline is a local-first backend system with five major parts:
-
-1. CLI
-2. API server
-3. Worker
-4. PostgreSQL database
-5. Sample API and report generator
-
-The CLI is the user interface. The API server owns persistence and queryable history. The worker owns check execution. PostgreSQL stores all durable state. The sample API exists only to make the project easy to test and demo.
-
-## Major system parts
-
-### CLI
-
-Ownership:
-
-- Reads command arguments.
-- Reads `backline.yml`.
-- Validates config shape before submission.
-- Calls the API.
-- Prints terminal output.
-- Polls run status when `backline run` waits for completion.
-- Generates local report files using API data.
-- Starts sample API through `backline sample serve`.
-
-The CLI must not:
-
-- Write directly to PostgreSQL.
-- Execute production checks directly.
-- Own run status transitions.
-- Duplicate API or worker business logic.
-
-Primary commands:
-
-```bash
-backline init
-backline sample init
-backline sample serve
-backline run
-backline run --no-wait
-backline status <runId>
-backline history
-backline diff <runId>
-backline report <runId>
-backline cancel <runId>
-backline worker
-backline doctor
+```text
+committed candidate config -> isolated worktrees -> immutable images
+              -> one run-scoped Compose environment
+              -> baseline / transition / controls / coexistence
+              -> candidate-only cutover / traffic / rollback
+              -> verdicts / artifacts / verified cleanup
 ```
 
-### API server
-
-Ownership:
-
-- Accepts project, check, and run requests.
-- Validates incoming API payloads.
-- Persists durable state.
-- Provides run history.
-- Provides filtering and pagination.
-- Provides run diff data.
-- Exposes health checks.
-- Exposes OpenAPI documentation.
-- Returns structured errors.
-
-The API server must not:
-
-- Execute HTTP checks itself.
-- Contain CLI rendering logic.
-- Generate sample files.
-
-### Worker
-
-Ownership:
-
-- Claims queued runs.
-- Executes HTTP checks.
-- Evaluates assertions.
-- Captures bounded observed JSON response contracts (when enabled) and writes their fingerprints with check results.
-- Writes check results.
-- Writes run events.
-- Finalizes run status.
-- Handles retries for worker execution errors.
-
-The worker must not:
-
-- Accept direct user input.
-- Own API response formatting.
-- Change project or check definitions except through run result writes.
-- Process the same run twice.
-
-Worker claim model:
-
-```sql
-SELECT id
-FROM runs
-WHERE status = 'QUEUED'
-  AND next_attempt_at <= now()
-ORDER BY queued_at ASC
-FOR UPDATE SKIP LOCKED
-LIMIT 1;
-```
-
-The selected run is marked `RUNNING` in the same transaction.
-
-### PostgreSQL database
-
-Ownership:
-
-- Durable state.
-- Relational integrity.
-- Queryable history.
-- Run status constraints.
-- Idempotency enforcement.
-- Filtering and aggregation performance.
-
-PostgreSQL is the only durable state store.
-
-### Sample API
-
-Ownership:
-
-- Provides predictable endpoints for demos and tests.
-- Produces known passing, failing, slow, and schema-change responses.
-- Runs locally only.
-
-The sample API must not be required in production mode.
-
-### Report generator
-
-Ownership:
-
-- Uses API data to produce Markdown report files.
-- Shows run summary, failures, latency, and diff.
-- Does not query the database directly.
-
-## Interfaces between parts
-
-### CLI to API
-
-Protocol: HTTP JSON.
-
-Examples:
-
-```txt
-POST /api/checks/sync
-POST /api/runs
-GET  /api/runs/{runId}
-GET  /api/runs/{runId}/results
-GET  /api/runs/{runId}/diff
-```
-
-### Worker to database
-
-Protocol: JDBC through Spring repositories or data access layer.
-
-The worker claims jobs and writes results through transactional services.
-
-### API to database
-
-Protocol: JDBC through Spring repositories or data access layer.
-
-The API reads and writes durable state through service methods.
-
-### CLI to sample API
-
-Protocol: local process launch or embedded Java HTTP server.
-
-The sample API exposes endpoints consumed by Backline checks.
-
-## Core entities
-
-### projects
-
-Purpose: group checks and runs.
-
-Required fields:
-
-```txt
-id
-slug
-name
-created_at
-updated_at
-```
-
-Constraints:
-
-```txt
-slug unique
-slug not null
-```
-
-### checks
-
-Purpose: store current check definitions by stable key.
-
-Required fields:
-
-```txt
-id
-project_id
-key
-name
-method
-url
-expected_status
-max_latency_ms
-assertions_json
-contract_json
-config_hash
-active
-created_at
-updated_at
-```
-
-Constraints:
-
-```txt
-(project_id, key) unique
-project_id foreign key
-method allowed set
-expected_status between 100 and 599
-max_latency_ms greater than 0 when present
-```
-
-`contract_json` stores the per-check observed-contract capture settings (`enabled`, `severity`, `ignore_paths`) when present.
-
-### runs
-
-Purpose: represent one submitted regression run.
-
-Required fields:
-
-```txt
-id
-project_id
-environment
-status
-idempotency_key
-config_hash
-source
-queued_at
-started_at
-finished_at
-locked_by
-locked_at
-attempt_count
-next_attempt_at
-created_at
-updated_at
-```
-
-Constraints:
-
-```txt
-project_id foreign key
-status allowed set
-idempotency_key unique when present
-attempt_count >= 0
-```
-
-Statuses:
-
-```txt
-QUEUED
-RUNNING
-PASSED
-FAILED
-ERROR
-CANCELLED
-```
-
-### check_results
-
-Purpose: store result of one check inside one run.
-
-Required fields:
-
-```txt
-id
-run_id
-check_id
-check_key
-check_name
-status
-actual_status
-latency_ms
-error_code
-error_message
-response_preview
-assertions_json
-response_contract_json
-response_contract_hash
-response_contract_status
-created_at
-```
-
-Constraints:
-
-```txt
-run_id foreign key
-check_id foreign key nullable only if check was removed after run snapshot
-(run_id, check_key) unique
-status allowed set
-latency_ms >= 0 when present
-response_contract_status allowed set when present (CAPTURED, NOT_JSON, INVALID_JSON, TRUNCATED, DISABLED, ERROR)
-```
-
-Observed response contracts store bounded path/type structure only (never scalar values). Diff ownership remains on the API (`DiffService`); capture ownership is on `libs/executor` via the worker.
-
-Result statuses:
-
-```txt
-PASSED
-FAILED
-ERROR
-SKIPPED
-```
-
-### run_events
-
-Purpose: create an auditable event trail for run state changes.
-
-Required fields:
-
-```txt
-id
-run_id
-event_type
-message
-created_at
-```
-
-Constraints:
-
-```txt
-run_id foreign key
-event_type not null
-```
-
-## API contract style
-
-All successful responses use one of these shapes:
-
-Single resource:
-
-```json
-{
-  "data": {}
-}
-```
-
-List response:
-
-```json
-{
-  "data": [],
-  "page": {
-    "limit": 25,
-    "offset": 0,
-    "total": 100
-  }
-}
-```
-
-Error response:
-
-```json
-{
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "expected_status must be between 100 and 599",
-    "field": "expected_status"
-  }
-}
-```
-
-## Required endpoints
-
-```txt
-GET    /actuator/health
-GET    /api/health
-POST   /api/projects
-GET    /api/projects
-GET    /api/projects/{projectId}
-POST   /api/checks/sync
-POST   /api/runs
-GET    /api/runs
-GET    /api/runs/{runId}
-GET    /api/runs/{runId}/results
-GET    /api/runs/{runId}/diff
-GET    /api/projects/{projectId}/summary
-GET    /api/checks/{checkId}/history
-```
-
-## Chosen stack
-
-```txt
-Language: Java 21
-Backend runtime: Spring Boot
-CLI: Picocli
-Database: PostgreSQL
-Migrations: Flyway
-Testing: JUnit 5, Testcontainers
-API docs: springdoc-openapi
-Build tool: Gradle multi-project build
-Local runtime: Docker Compose
-Logging: SLF4J with structured JSON-friendly fields
-```
-
-## Repository structure
-
-```txt
-backline/
-  AGENTS.md
-  PRD.md
-  ARCHITECTURE.md
-  GUARDRAILS.md
-  PLAN.md
-  README.md
-  docker-compose.yml
-  .env.example
-
-  apps/
-    cli/
-      src/main/java/...
-      src/test/java/...
-
-    api/
-      src/main/java/...
-      src/test/java/...
-
-    worker/
-      src/main/java/...
-      src/test/java/...
-
-    sample-api/
-      src/main/java/...
-      src/test/java/...
-
-  libs/
-    core/
-      src/main/java/...
-      src/test/java/...
-
-    config/
-      src/main/java/...
-      src/test/java/...
-
-    executor/
-      src/main/java/...
-      src/test/java/...
-
-    reporting/
-      src/main/java/...
-      src/test/java/...
-
-  db/
-    migration/
-      V1__create_projects.sql
-      V2__create_checks.sql
-      V3__create_runs.sql
-      V4__create_check_results.sql
-      V5__create_run_events.sql
-      V6__add_indexes.sql
-
-  examples/
-    sample-api/
-      backline.yml
-      README.md
-
-  docs/
-    api-examples.md
-    known-limitations.md
-    demo-script.md
-```
-
-## Module responsibilities
-
-### apps/cli
-
-Contains Picocli commands and terminal rendering.
-
-Depends on:
-
-- `libs/config`
-- `libs/core`
-- `libs/reporting`
-
-Calls API through HTTP client.
-
-### apps/api
-
-Contains Spring Boot API server.
-
-Depends on:
-
-- `libs/core`
-- database migration setup
-- repository/data access code
-
-Exposes REST API, OpenAPI docs, and Actuator health checks.
-
-### apps/worker
-
-Contains Spring Boot worker runtime.
-
-Depends on:
-
-- `libs/core`
-- `libs/executor`
-
-Claims queued runs and executes checks.
-
-### apps/sample-api
-
-Contains local sample API for demo and tests.
-
-Must stay small and predictable.
-
-### libs/core
-
-Contains shared domain models, enums, DTOs, error codes, and validation primitives that are not tied to HTTP or CLI rendering.
-
-### libs/config
-
-Contains YAML parsing and config validation.
-
-### libs/executor
-
-Contains HTTP execution, assertion evaluation, and bounded observed JSON response-contract capture.
-
-Used by worker only.
-
-### libs/reporting
-
-Contains Markdown report generation from API response data.
-
-## Transaction boundaries
-
-### Run submission
-
-Transaction:
-
-1. Require existing project by slug.
-2. Create run with `QUEUED` status.
-3. Write run event.
-4. Commit.
-
-Client orchestration:
-
-- CLI performs project creation and check sync in separate API calls before run submission.
-
-### Worker claim
-
-Transaction:
-
-1. Select one queued run with `FOR UPDATE SKIP LOCKED`.
-2. Mark run as `RUNNING`.
-3. Set `locked_by`, `locked_at`, `started_at`.
-4. Write run event.
-5. Commit.
-
-### Result writing and finalization
-
-Transaction:
-
-1. Insert all check results for the claimed run.
-2. Compute final run status.
-3. Mark run as `PASSED`, `FAILED`, or `ERROR`.
-4. Set `finished_at`.
-5. Write run event.
-6. Commit atomically.
+Backline owns no server, database, daemon, account, dashboard, or long-term history. Git, Docker, Docker Compose v2, the filesystem, and project commands are external boundaries.
+
+## Package ownership
+
+| Package | Responsibility |
+| --- | --- |
+| `cmd/backline` | Process entry point and build-time version value. |
+| `internal/cli` | Command dispatch, flags, help, terminal output, and exit codes. |
+| `internal/app` | Command use cases and assembly of preflight and verification dependencies. |
+| `internal/model` | Stable run, stage, verdict, reason-code, process-result, and artifact types. |
+| `internal/config` | Committed-candidate configuration loading, strict YAML parsing, defaults, substitution, and semantic validation. |
+| `internal/gitops` | Repository discovery, ref resolution, Git-object reads, and detached worktrees. |
+| `internal/preflight` | Revision/config resolution, path validation, Compose normalization, prerequisite checks, and worktree preparation. |
+| `internal/process` | Argument-array command execution, bounded capture, timeouts, cancellation, and process-tree termination. |
+| `internal/dockerops` | Docker context checks, image builds, container inspection, labels, ports, and component lifecycle. |
+| `internal/compose` | Compose normalization, safety validation, shared-service startup, health, networks, volumes, and shutdown. |
+| `internal/components` | Revision-role component startup, environment merge, readiness, monitoring, and stop behavior. |
+| `internal/hooks` | Host and one-off component lifecycle hooks. |
+| `internal/workloads` | Host workload steps, scenario directories, target variables, repeats, and control reuse. |
+| `internal/orchestrator` | The deterministic lifecycle state machine and dependency/continuation decisions. |
+| `internal/verdicts` | Pure stage-to-verdict classification, reason precedence, overall status, and process exit selection. |
+| `internal/redact` | Exact-value and pattern-based redaction for every persisted or displayed channel. |
+| `internal/artifacts` | Secure run directories, JSON, JSONL, redacted YAML, bounded logs, and atomic external artifact writes. |
+| `internal/reporting` | Terminal, Markdown, JUnit, and GitHub step-summary rendering. |
+| `internal/cleanup` | Run-owned resource registry, signal cleanup, retention, cleanup verification, and manual commands. |
+
+Packages depend on `internal/model` and narrow interfaces. Orchestration coordinates packages but does not absorb their implementation rules. Docker, Compose, Git, and process calls remain injectable for deterministic tests.
+
+## Lifecycle and state ownership
+
+The orchestrator owns this ordered lifecycle:
+
+1. preflight and committed candidate configuration;
+2. run directories and detached worktrees;
+3. base and candidate image builds;
+4. one shared Compose environment;
+5. base bootstrap, startup, and baseline;
+6. candidate transition and original-base control;
+7. candidate startup/control and second original-base control;
+8. directional mixed-version scenarios;
+9. base stop, candidate-only hooks, and candidate traffic;
+10. candidate stop, optional rollback preparation, fresh base, and rollback checks;
+11. verdict finalization, artifact rendering, and cleanup.
+
+Shared services start once and their state is never silently reset. The original base containers survive transition and both attribution controls. Rollback always uses fresh base containers.
+
+Stage outcomes are evidence, not verdicts. `internal/verdicts` is the only owner of compatibility classification and exit-code precedence.
+
+## External command boundary
+
+- Commands are argument arrays; Backline never adds an implicit shell.
+- Every call has context cancellation and an operation timeout.
+- A launched nonzero/timeout is project evidence; failure to launch/control is operational.
+- Logs are bounded and redacted before terminal or artifact output.
+- Workload commands inherit only required OS variables, explicitly allowed variables, and Backline-reserved variables.
+
+## Filesystem boundary
+
+- Candidate config is read from Git objects before worktree creation.
+- Repository/worktree-relative paths are normalized, symlinks resolved, and escapes rejected.
+- Explicit CLI output/environment paths may be external; configured relative paths remain within the invoking repository.
+- Cleanup removes only exact registered run paths and never broad roots or unresolved paths.
+
+## Docker boundary
+
+- Every owned resource has a run ID label and deterministic role/component metadata.
+- Compose uses a unique project name. Candidate YAML cannot enable unsafe behavior.
+- Addressable components use Docker-assigned random loopback ports.
+- External resources, host mounts, global names, fixed ports, restart/replica settings, privileged/host namespaces, devices, Docker sockets, and remote contexts are rejected unless an explicit CLI safety flag applies.
+- Cleanup never deletes an external, unlabeled, or differently labeled resource.
+
+## Artifacts
+
+Artifacts are run-local and schema-versioned. The canonical run directory contains `report.md`, `summary.json`, `events.jsonl`, `resolved-config.redacted.yml`, and bounded logs. Scenario and shared handoff directories are execution state and are not copied into artifacts.
+
+Artifact rendering is best effort after partial execution. Compatibility evidence is never overwritten by cleanup or reporting errors.
+
+## Trust model
+
+Backline builds and executes trusted base/candidate revisions and project commands. It is not a sandbox. Docker access is privileged. Standard CI never runs candidate code through `pull_request_target`, never gives secrets to untrusted forks, and gates Docker execution for untrusted contributions.
 
 ## Rejected alternatives
 
-### Full microservices
-
-Rejected because it adds complexity without improving the portfolio signal. The worker process is enough to show asynchronous processing, job ownership, concurrency safety, and retry logic.
-
-### Kafka or Redis queue
-
-Rejected for the build scope. PostgreSQL-backed jobs are enough and keep the system easier to run locally.
-
-### Frontend dashboard
-
-Rejected because the project is intended to show backend strength. Reports and CLI output provide enough proof.
-
-### Direct CLI to database
-
-Rejected because it weakens the API story and creates two persistence paths.
-
-### CLI-owned check execution
-
-Rejected because it duplicates worker logic and reduces the value of the async backend.
+- Preserving the Java API/worker/database architecture.
+- Adding an embedded database or history service.
+- Implementing framework-specific database, cache, or broker engines.
+- Adding an HTTP workload DSL, plugin process, Kubernetes support, or production deployment behavior.
+- Using a Docker SDK where the required Docker/Compose CLI boundary already provides the contract.
