@@ -253,8 +253,10 @@ func (s *Service) Prepare(ctx context.Context, options Options) (_ *Preparation,
 	if err != nil {
 		return nil, cleanup, configuration(fmt.Errorf("shared_environment.compose_file: %w", err))
 	}
-	if _, err := exec.LookPath("docker"); err != nil {
-		return nil, cleanup, prerequisite(errors.New("Docker is not installed or not on PATH"))
+	if options.CheckPrerequisites {
+		if _, err := exec.LookPath("docker"); err != nil {
+			return nil, cleanup, prerequisite(errors.New("Docker is not installed or not on PATH"))
+		}
 	}
 	composeJSON, err := s.normalizeCompose(ctx, candidateWorktree, composePath, envPath)
 	if err != nil {
